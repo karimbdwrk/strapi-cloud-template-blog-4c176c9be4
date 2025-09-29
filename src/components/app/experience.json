@@ -1,0 +1,22 @@
+{
+  "collectionName": "components_app_experiences",
+  "info": {
+    "displayName": "experience",
+    "icon": "expand"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "text"
+    },
+    "start": {
+      "type": "date"
+    },
+    "end": {
+      "type": "date"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "collectionName": "components_app_address_globals",
+  "info": {
+    "displayName": "AddressGlobal",
+    "icon": "apps"
+  },
+  "options": {},
+  "attributes": {
+    "line": {
+      "type": "string"
+    },
+    "postcode": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "country": {
+      "type": "string"
+    }
+  }
+}

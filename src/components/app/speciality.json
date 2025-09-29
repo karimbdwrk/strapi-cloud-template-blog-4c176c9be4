@@ -1,0 +1,21 @@
+{
+  "collectionName": "components_app_specialities",
+  "info": {
+    "displayName": "Speciality",
+    "icon": "database"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "duration": {
+      "type": "integer"
+    },
+    "category": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::category.category"
+    }
+  }
+}

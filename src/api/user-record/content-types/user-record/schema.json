@@ -1,0 +1,63 @@
+{
+  "kind": "collectionType",
+  "collectionName": "user_records",
+  "info": {
+    "singularName": "user-record",
+    "pluralName": "user-records",
+    "displayName": "UserRecord",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "lastname": {
+      "type": "string"
+    },
+    "firstname": {
+      "type": "string"
+    },
+    "users_permissions_user": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "user_record"
+    },
+    "healthRecord": {
+      "type": "component",
+      "repeatable": false,
+      "component": "user.health-record"
+    },
+    "healthInformations": {
+      "type": "component",
+      "repeatable": false,
+      "component": "app.health-informations"
+    },
+    "UUID": {
+      "type": "customField",
+      "options": {
+        "uuid-format": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      },
+      "customField": "plugin::strapi-advanced-uuid.uuid"
+    },
+    "languages": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::language.language",
+      "inversedBy": "user_records"
+    },
+    "addressUser": {
+      "type": "component",
+      "repeatable": false,
+      "component": "user.address-user"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

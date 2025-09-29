@@ -405,6 +405,7 @@ export interface ApiAboutAbout extends Struct.SingleTypeSchema {
 export interface ApiAppointmentAppointment extends Struct.CollectionTypeSchema {
   collectionName: 'appointments';
   info: {
+    description: '';
     displayName: 'Appointment';
     pluralName: 'appointments';
     singularName: 'appointment';
@@ -413,33 +414,84 @@ export interface ApiAppointmentAppointment extends Struct.CollectionTypeSchema {
     draftAndPublish: false;
   };
   attributes: {
+    category: Schema.Attribute.Relation<'manyToOne', 'api::category.category'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    date: Schema.Attribute.Date;
+    datetime: Schema.Attribute.DateTime;
+    docFromPatientA: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios'
+    >;
+    docFromPatientB: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios'
+    >;
+    docFromPatientC: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios'
+    >;
+    docFromPatientD: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios'
+    >;
+    docFromPatientE: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios'
+    >;
+    docFromPatientF: Schema.Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios'
+    >;
+    doctor: Schema.Attribute.Relation<'manyToOne', 'api::doctor.doctor'>;
+    doctorNote: Schema.Attribute.RichText;
+    document1: Schema.Attribute.Media<'images'>;
+    document2: Schema.Attribute.Media<'images' | 'videos' | 'audios' | 'files'>;
+    document3: Schema.Attribute.Media<'images'>;
+    document4: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
+    document5: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
+    document6: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
+    duration: Schema.Attribute.Integer;
+    isCancelled: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    isCancelledByPatient: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    isFromDoctor: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    isOnline: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    isOver: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    isPaid: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
       'api::appointment.appointment'
     > &
       Schema.Attribute.Private;
+    note: Schema.Attribute.RichText;
+    patient: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
     publishedAt: Schema.Attribute.DateTime;
+    rating: Schema.Attribute.Relation<'oneToOne', 'api::rating.rating'>;
+    reason: Schema.Attribute.String;
+    reportings: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::reporting.reporting'
+    >;
+    someoneElse: Schema.Attribute.Component<'user.someone-else', false>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     UUID: Schema.Attribute.UID<
       undefined,
       {
+        'disable-auto-fill': true;
         'disable-regenerate': true;
-        'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
       }
     > &
+      Schema.Attribute.Required &
       Schema.Attribute.CustomField<
         'plugin::strapi-advanced-uuid.uuid',
         {
+          'disable-auto-fill': true;
           'disable-regenerate': true;
-          'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
         }
       >;
+    visioLink: Schema.Attribute.String;
   };
 }
 
@@ -452,22 +504,17 @@ export interface ApiArticleArticle extends Struct.CollectionTypeSchema {
     singularName: 'article';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
-    author: Schema.Attribute.Relation<'manyToOne', 'api::author.author'>;
-    blocks: Schema.Attribute.DynamicZone<
-      ['shared.media', 'shared.quote', 'shared.rich-text', 'shared.slider']
-    >;
+    author: Schema.Attribute.Relation<'manyToOne', 'api::doctor.doctor'>;
     category: Schema.Attribute.Relation<'manyToOne', 'api::category.category'>;
+    content: Schema.Attribute.RichText;
     cover: Schema.Attribute.Media<'images' | 'files' | 'videos'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    description: Schema.Attribute.Text &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 80;
-      }>;
+    description: Schema.Attribute.Text;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -527,11 +574,16 @@ export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
     draftAndPublish: false;
   };
   attributes: {
+    appointments: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::appointment.appointment'
+    >;
     articles: Schema.Attribute.Relation<'oneToMany', 'api::article.article'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     description: Schema.Attribute.Text;
+    doctors: Schema.Attribute.Relation<'manyToMany', 'api::doctor.doctor'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -539,38 +591,9 @@ export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     name: Schema.Attribute.String;
+    offices: Schema.Attribute.Relation<'manyToMany', 'api::office.office'>;
     publishedAt: Schema.Attribute.DateTime;
     slug: Schema.Attribute.UID;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-  };
-}
-
-export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
-  collectionName: 'doctors';
-  info: {
-    displayName: 'Doctor';
-    pluralName: 'doctors';
-    singularName: 'doctor';
-  };
-  options: {
-    draftAndPublish: false;
-  };
-  attributes: {
-    appointmentPhone: Schema.Attribute.String;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    firstname: Schema.Attribute.String;
-    lastname: Schema.Attribute.String;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::doctor.doctor'
-    > &
-      Schema.Attribute.Private;
-    publishedAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -586,6 +609,190 @@ export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
           'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
         }
       >;
+  };
+}
+
+export interface ApiCityCity extends Struct.CollectionTypeSchema {
+  collectionName: 'cities';
+  info: {
+    description: '';
+    displayName: 'City';
+    pluralName: 'cities';
+    singularName: 'city';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    country: Schema.Attribute.Relation<'manyToOne', 'api::country.country'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    department: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::department.department'
+    >;
+    doctors: Schema.Attribute.Relation<'oneToMany', 'api::doctor.doctor'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::city.city'> &
+      Schema.Attribute.Private;
+    postcode: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    title: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiCountryCountry extends Struct.CollectionTypeSchema {
+  collectionName: 'countries';
+  info: {
+    description: '';
+    displayName: 'Country';
+    pluralName: 'countries';
+    singularName: 'country';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    cities: Schema.Attribute.Relation<'oneToMany', 'api::city.city'>;
+    code: Schema.Attribute.String;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    departments: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::department.department'
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::country.country'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiDepartmentDepartment extends Struct.CollectionTypeSchema {
+  collectionName: 'departments';
+  info: {
+    displayName: 'Department';
+    pluralName: 'departments';
+    singularName: 'department';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    cities: Schema.Attribute.Relation<'oneToMany', 'api::city.city'>;
+    code: Schema.Attribute.String;
+    country: Schema.Attribute.Relation<'manyToOne', 'api::country.country'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::department.department'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    title: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
+  collectionName: 'doctors';
+  info: {
+    description: '';
+    displayName: 'Doctor';
+    pluralName: 'doctors';
+    singularName: 'doctor';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    address: Schema.Attribute.Component<'app.address', false>;
+    AddressDoctor: Schema.Attribute.Component<'app.address-doctor', true>;
+    AddressGlobal: Schema.Attribute.Component<'app.address-global', false>;
+    appointmentPhone: Schema.Attribute.String;
+    appointments: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::appointment.appointment'
+    >;
+    appointmentsData: Schema.Attribute.Component<
+      'app.appointments-data',
+      false
+    >;
+    articles: Schema.Attribute.Relation<'oneToMany', 'api::article.article'>;
+    avatar: Schema.Attribute.Media<'images'>;
+    carousel: Schema.Attribute.Component<'app.carousel', true>;
+    categories: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::category.category'
+    >;
+    city: Schema.Attribute.Relation<'manyToOne', 'api::city.city'>;
+    consultationType: Schema.Attribute.Enumeration<
+      ['physical', 'online', 'both']
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.RichText;
+    diplomas: Schema.Attribute.Component<'app.diploma', true>;
+    doctorId: Schema.Attribute.UID;
+    experiences: Schema.Attribute.Component<'app.experience', true>;
+    firstname: Schema.Attribute.String;
+    friday: Schema.Attribute.Component<'app.workday', false>;
+    gender: Schema.Attribute.String;
+    holidays: Schema.Attribute.Component<'app.holidays', true>;
+    isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    languages: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::language.language'
+    >;
+    lastname: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::doctor.doctor'
+    > &
+      Schema.Attribute.Private;
+    monday: Schema.Attribute.Component<'app.workday', false>;
+    office: Schema.Attribute.Relation<'manyToOne', 'api::office.office'>;
+    onlyMen: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    onlyPhone: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    onlyWomen: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    priceRange: Schema.Attribute.Component<'user.price-range', false>;
+    publishedAt: Schema.Attribute.DateTime;
+    ratings: Schema.Attribute.Relation<'oneToMany', 'api::rating.rating'>;
+    reason: Schema.Attribute.Component<'user.reason', true>;
+    saturday: Schema.Attribute.Component<'app.workday', false>;
+    speciality: Schema.Attribute.Component<'app.speciality', true>;
+    sunday: Schema.Attribute.Component<'app.workday', false>;
+    thursday: Schema.Attribute.Component<'app.workday', false>;
+    tuesday: Schema.Attribute.Component<'app.workday', false>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    users_permissions_user: Schema.Attribute.Relation<
+      'oneToOne',
+      'plugin::users-permissions.user'
+    >;
+    UUID: Schema.Attribute.UID &
+      Schema.Attribute.CustomField<'plugin::strapi-advanced-uuid.uuid'>;
+    wednesday: Schema.Attribute.Component<'app.workday', false>;
   };
 }
 
@@ -618,6 +825,276 @@ export interface ApiGlobalGlobal extends Struct.SingleTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+  };
+}
+
+export interface ApiLanguageLanguage extends Struct.CollectionTypeSchema {
+  collectionName: 'languages';
+  info: {
+    description: '';
+    displayName: 'Language';
+    pluralName: 'languages';
+    singularName: 'language';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    code: Schema.Attribute.String;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    doctors: Schema.Attribute.Relation<'manyToMany', 'api::doctor.doctor'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::language.language'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    title: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    user_records: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::user-record.user-record'
+    >;
+  };
+}
+
+export interface ApiOfficeOffice extends Struct.CollectionTypeSchema {
+  collectionName: 'offices';
+  info: {
+    description: '';
+    displayName: 'Office';
+    pluralName: 'offices';
+    singularName: 'office';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    address: Schema.Attribute.Component<'app.address', false>;
+    categories: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::category.category'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    doctors: Schema.Attribute.Relation<'oneToMany', 'api::doctor.doctor'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::office.office'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    UUID: Schema.Attribute.UID<
+      undefined,
+      {
+        'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+      }
+    > &
+      Schema.Attribute.CustomField<
+        'plugin::strapi-advanced-uuid.uuid',
+        {
+          'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+        }
+      >;
+  };
+}
+
+export interface ApiRatingRating extends Struct.CollectionTypeSchema {
+  collectionName: 'ratings';
+  info: {
+    description: '';
+    displayName: 'Rating';
+    pluralName: 'ratings';
+    singularName: 'rating';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    appointment: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::appointment.appointment'
+    >;
+    conditions: Schema.Attribute.Integer;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    doctor: Schema.Attribute.Relation<'manyToOne', 'api::doctor.doctor'>;
+    finalScore: Schema.Attribute.Decimal;
+    listening: Schema.Attribute.Integer;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::rating.rating'
+    > &
+      Schema.Attribute.Private;
+    note: Schema.Attribute.Text;
+    professionalism: Schema.Attribute.Integer;
+    publishedAt: Schema.Attribute.DateTime;
+    punctuality: Schema.Attribute.Integer;
+    respect: Schema.Attribute.Integer;
+    response: Schema.Attribute.Integer;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    users_permissions_user: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    UUID: Schema.Attribute.UID<
+      undefined,
+      {
+        'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+      }
+    > &
+      Schema.Attribute.CustomField<
+        'plugin::strapi-advanced-uuid.uuid',
+        {
+          'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+        }
+      >;
+  };
+}
+
+export interface ApiReportingReporting extends Struct.CollectionTypeSchema {
+  collectionName: 'reportings';
+  info: {
+    displayName: 'Reporting';
+    pluralName: 'reportings';
+    singularName: 'reporting';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    appointment: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::appointment.appointment'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    doctor: Schema.Attribute.Relation<'oneToOne', 'api::doctor.doctor'>;
+    from: Schema.Attribute.Enumeration<['doctor', 'patient']>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::reporting.reporting'
+    > &
+      Schema.Attribute.Private;
+    note: Schema.Attribute.RichText;
+    patient: Schema.Attribute.Relation<
+      'oneToOne',
+      'plugin::users-permissions.user'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    reason: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiUserRecordUserRecord extends Struct.CollectionTypeSchema {
+  collectionName: 'user_records';
+  info: {
+    description: '';
+    displayName: 'UserRecord';
+    pluralName: 'user-records';
+    singularName: 'user-record';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    addressUser: Schema.Attribute.Component<'user.address-user', false>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    firstname: Schema.Attribute.String;
+    healthInformations: Schema.Attribute.Component<
+      'app.health-informations',
+      false
+    >;
+    healthRecord: Schema.Attribute.Component<'user.health-record', false>;
+    isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    languages: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::language.language'
+    >;
+    lastname: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::user-record.user-record'
+    > &
+      Schema.Attribute.Private;
+    phone: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    users_permissions_user: Schema.Attribute.Relation<
+      'oneToOne',
+      'plugin::users-permissions.user'
+    >;
+    UUID: Schema.Attribute.UID<
+      undefined,
+      {
+        'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+      }
+    > &
+      Schema.Attribute.CustomField<
+        'plugin::strapi-advanced-uuid.uuid',
+        {
+          'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+        }
+      >;
+  };
+}
+
+export interface ApiUserinformationUserinformation
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'userinformations';
+  info: {
+    displayName: 'userInformation';
+    pluralName: 'userinformations';
+    singularName: 'userinformation';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    firstname: Schema.Attribute.String;
+    lastname: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::userinformation.userinformation'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    user: Schema.Attribute.Relation<
+      'oneToOne',
+      'plugin::users-permissions.user'
+    >;
   };
 }
 
@@ -1076,20 +1553,27 @@ export interface PluginUsersPermissionsUser
   };
   options: {
     draftAndPublish: false;
-    timestamps: true;
   };
   attributes: {
+    appointments: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::appointment.appointment'
+    >;
     blocked: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     confirmationToken: Schema.Attribute.String & Schema.Attribute.Private;
     confirmed: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    doctor: Schema.Attribute.Relation<'oneToOne', 'api::doctor.doctor'>;
     email: Schema.Attribute.Email &
       Schema.Attribute.Required &
       Schema.Attribute.SetMinMaxLength<{
         minLength: 6;
       }>;
+    firstname: Schema.Attribute.String;
+    isDoctor: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    lastname: Schema.Attribute.String;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -1101,8 +1585,10 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.SetMinMaxLength<{
         minLength: 6;
       }>;
+    phone: Schema.Attribute.String;
     provider: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
+    ratings: Schema.Attribute.Relation<'oneToMany', 'api::rating.rating'>;
     resetPasswordToken: Schema.Attribute.String & Schema.Attribute.Private;
     role: Schema.Attribute.Relation<
       'manyToOne',
@@ -1111,12 +1597,32 @@ export interface PluginUsersPermissionsUser
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    user_information: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::userinformation.userinformation'
+    >;
+    user_record: Schema.Attribute.Relation<
+      'oneToOne',
+      'api::user-record.user-record'
+    >;
     username: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.Unique &
       Schema.Attribute.SetMinMaxLength<{
         minLength: 3;
       }>;
+    UUID: Schema.Attribute.UID<
+      undefined,
+      {
+        'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+      }
+    > &
+      Schema.Attribute.CustomField<
+        'plugin::strapi-advanced-uuid.uuid',
+        {
+          'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+        }
+      >;
   };
 }
 
@@ -1135,8 +1641,17 @@ declare module '@strapi/strapi' {
       'api::article.article': ApiArticleArticle;
       'api::author.author': ApiAuthorAuthor;
       'api::category.category': ApiCategoryCategory;
+      'api::city.city': ApiCityCity;
+      'api::country.country': ApiCountryCountry;
+      'api::department.department': ApiDepartmentDepartment;
       'api::doctor.doctor': ApiDoctorDoctor;
       'api::global.global': ApiGlobalGlobal;
+      'api::language.language': ApiLanguageLanguage;
+      'api::office.office': ApiOfficeOffice;
+      'api::rating.rating': ApiRatingRating;
+      'api::reporting.reporting': ApiReportingReporting;
+      'api::user-record.user-record': ApiUserRecordUserRecord;
+      'api::userinformation.userinformation': ApiUserinformationUserinformation;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;

@@ -1,0 +1,20 @@
+{
+  "collectionName": "components_app_documents",
+  "info": {
+    "displayName": "Documents",
+    "icon": "file"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "file": {
+      "allowedTypes": [
+        "images"
+      ],
+      "type": "media",
+      "multiple": false
+    }
+  }
+}

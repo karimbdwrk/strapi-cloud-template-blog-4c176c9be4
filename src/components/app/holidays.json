@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_app_holidays",
+  "info": {
+    "displayName": "Holidays",
+    "icon": "calendar"
+  },
+  "options": {},
+  "attributes": {
+    "start": {
+      "type": "date"
+    },
+    "end": {
+      "type": "date"
+    }
+  }
+}

@@ -26,6 +26,31 @@
     },
     "description": {
       "type": "text"
+    },
+    "UUID": {
+      "type": "customField",
+      "options": {
+        "uuid-format": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      },
+      "customField": "plugin::strapi-advanced-uuid.uuid"
+    },
+    "appointments": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::appointment.appointment",
+      "mappedBy": "category"
+    },
+    "doctors": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::doctor.doctor",
+      "inversedBy": "categories"
+    },
+    "offices": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::office.office",
+      "mappedBy": "categories"
     }
   }
 }

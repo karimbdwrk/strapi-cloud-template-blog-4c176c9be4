@@ -1,0 +1,24 @@
+{
+  "collectionName": "components_app_carousels",
+  "info": {
+    "displayName": "carousel",
+    "icon": "cast"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    }
+  },
+  "config": {}
+}

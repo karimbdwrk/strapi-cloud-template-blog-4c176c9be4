@@ -4,7 +4,8 @@
   "info": {
     "singularName": "doctor",
     "pluralName": "doctors",
-    "displayName": "Doctor"
+    "displayName": "Doctor",
+    "description": ""
   },
   "options": {
     "draftAndPublish": false
@@ -13,10 +14,7 @@
   "attributes": {
     "UUID": {
       "type": "customField",
-      "customField": "plugin::strapi-advanced-uuid.uuid",
-      "options": {
-        "uuid-format": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-      }
+      "customField": "plugin::strapi-advanced-uuid.uuid"
     },
     "lastname": {
       "type": "string"
@@ -25,6 +23,186 @@
       "type": "string"
     },
     "appointmentPhone": {
+      "type": "string",
+      "regex": "^\\d+$"
+    },
+    "users_permissions_user": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "doctor"
+    },
+    "avatar": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "appointments": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::appointment.appointment",
+      "mappedBy": "doctor"
+    },
+    "address": {
+      "type": "component",
+      "component": "app.address",
+      "repeatable": false
+    },
+    "speciality": {
+      "type": "component",
+      "component": "app.speciality",
+      "repeatable": true
+    },
+    "categories": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::category.category",
+      "mappedBy": "doctors"
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": false
+    },
+    "city": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::city.city",
+      "inversedBy": "doctors"
+    },
+    "appointmentsData": {
+      "type": "component",
+      "component": "app.appointments-data",
+      "repeatable": false
+    },
+    "onlyPhone": {
+      "type": "boolean",
+      "default": true
+    },
+    "holidays": {
+      "type": "component",
+      "component": "app.holidays",
+      "repeatable": true
+    },
+    "ratings": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::rating.rating",
+      "mappedBy": "doctor"
+    },
+    "reason": {
+      "type": "component",
+      "component": "user.reason",
+      "repeatable": true
+    },
+    "consultationType": {
+      "type": "enumeration",
+      "enum": [
+        "physical",
+        "online",
+        "both"
+      ]
+    },
+    "doctorId": {
+      "type": "uid"
+    },
+    "languages": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::language.language",
+      "mappedBy": "doctors"
+    },
+    "diplomas": {
+      "type": "component",
+      "component": "app.diploma",
+      "repeatable": true
+    },
+    "experiences": {
+      "type": "component",
+      "component": "app.experience",
+      "repeatable": true
+    },
+    "office": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::office.office",
+      "inversedBy": "doctors"
+    },
+    "priceRange": {
+      "type": "component",
+      "component": "user.price-range",
+      "repeatable": false
+    },
+    "articles": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::article.article",
+      "mappedBy": "author"
+    },
+    "description": {
+      "type": "richtext"
+    },
+    "onlyWomen": {
+      "type": "boolean",
+      "default": false
+    },
+    "onlyMen": {
+      "type": "boolean",
+      "default": false
+    },
+    "AddressDoctor": {
+      "type": "component",
+      "component": "app.address-doctor",
+      "repeatable": true
+    },
+    "AddressGlobal": {
+      "type": "component",
+      "component": "app.address-global",
+      "repeatable": false
+    },
+    "monday": {
+      "type": "component",
+      "component": "app.workday",
+      "repeatable": false
+    },
+    "tuesday": {
+      "type": "component",
+      "component": "app.workday",
+      "repeatable": false
+    },
+    "wednesday": {
+      "type": "component",
+      "component": "app.workday",
+      "repeatable": false
+    },
+    "thursday": {
+      "type": "component",
+      "component": "app.workday",
+      "repeatable": false
+    },
+    "friday": {
+      "type": "component",
+      "component": "app.workday",
+      "repeatable": false
+    },
+    "saturday": {
+      "type": "component",
+      "component": "app.workday",
+      "repeatable": false
+    },
+    "sunday": {
+      "type": "component",
+      "component": "app.workday",
+      "repeatable": false
+    },
+    "carousel": {
+      "type": "component",
+      "component": "app.carousel",
+      "repeatable": true
+    },
+    "gender": {
       "type": "string"
     }
   }

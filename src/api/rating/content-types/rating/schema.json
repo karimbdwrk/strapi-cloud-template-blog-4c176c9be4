@@ -1,0 +1,65 @@
+{
+  "kind": "collectionType",
+  "collectionName": "ratings",
+  "info": {
+    "singularName": "rating",
+    "pluralName": "ratings",
+    "displayName": "Rating",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "appointment": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::appointment.appointment",
+      "inversedBy": "rating"
+    },
+    "users_permissions_user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "ratings"
+    },
+    "doctor": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::doctor.doctor",
+      "inversedBy": "ratings"
+    },
+    "UUID": {
+      "type": "customField",
+      "options": {
+        "uuid-format": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      },
+      "customField": "plugin::strapi-advanced-uuid.uuid"
+    },
+    "punctuality": {
+      "type": "integer"
+    },
+    "respect": {
+      "type": "integer"
+    },
+    "response": {
+      "type": "integer"
+    },
+    "professionalism": {
+      "type": "integer"
+    },
+    "listening": {
+      "type": "integer"
+    },
+    "conditions": {
+      "type": "integer"
+    },
+    "note": {
+      "type": "text"
+    },
+    "finalScore": {
+      "type": "decimal"
+    }
+  }
+}

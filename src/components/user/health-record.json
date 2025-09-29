@@ -1,0 +1,40 @@
+{
+  "collectionName": "components_user_health_records",
+  "info": {
+    "displayName": "HealthRecord",
+    "icon": "doctor",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "bloodGroup": {
+      "type": "enumeration",
+      "enum": [
+        "Apos",
+        "Aneg",
+        "Bpos",
+        "Bneg",
+        "ABpos",
+        "ABneg",
+        "Opos",
+        "Oneg"
+      ]
+    },
+    "height": {
+      "type": "integer"
+    },
+    "weight": {
+      "type": "integer"
+    },
+    "birthday": {
+      "type": "date"
+    },
+    "gender": {
+      "type": "enumeration",
+      "enum": [
+        "man",
+        "woman"
+      ]
+    }
+  }
+}

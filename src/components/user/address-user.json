@@ -1,0 +1,22 @@
+{
+  "collectionName": "components_user_address_users",
+  "info": {
+    "displayName": "addressUser",
+    "icon": "alien"
+  },
+  "options": {},
+  "attributes": {
+    "line": {
+      "type": "string"
+    },
+    "postcode": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "country": {
+      "type": "string"
+    }
+  }
+}

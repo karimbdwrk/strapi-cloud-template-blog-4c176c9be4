@@ -1,0 +1,28 @@
+{
+  "collectionName": "components_app_health_informations",
+  "info": {
+    "displayName": "healthInformations",
+    "icon": "information"
+  },
+  "options": {},
+  "attributes": {
+    "pathologies": {
+      "type": "text"
+    },
+    "allergies": {
+      "type": "text"
+    },
+    "treatments": {
+      "type": "text"
+    },
+    "hospitalizations": {
+      "type": "text"
+    },
+    "familyHistory": {
+      "type": "text"
+    },
+    "additionalInformations": {
+      "type": "text"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "collectionName": "components_app_diplomas",
+  "info": {
+    "displayName": "diploma",
+    "icon": "file",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+    "year": {
+      "type": "integer"
+    }
+  }
+}

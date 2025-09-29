@@ -1,0 +1,49 @@
+{
+  "collectionName": "components_app_workdays",
+  "info": {
+    "displayName": "workday",
+    "icon": "apps",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "value": {
+      "type": "integer"
+    },
+    "address": {
+      "type": "string"
+    },
+    "postcode": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "isOnline": {
+      "type": "boolean",
+      "default": true
+    },
+    "startTime": {
+      "type": "time"
+    },
+    "endTime": {
+      "type": "time"
+    },
+    "startBreak": {
+      "type": "time"
+    },
+    "endBreak": {
+      "type": "time"
+    },
+    "duration": {
+      "type": "integer"
+    },
+    "isOff": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

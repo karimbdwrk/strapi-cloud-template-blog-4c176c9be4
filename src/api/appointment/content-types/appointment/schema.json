@@ -4,20 +4,228 @@
   "info": {
     "singularName": "appointment",
     "pluralName": "appointments",
-    "displayName": "Appointment"
+    "displayName": "Appointment",
+    "description": ""
   },
   "options": {
     "draftAndPublish": false
   },
   "pluginOptions": {},
   "attributes": {
+    "patient": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "appointments"
+    },
+    "datetime": {
+      "type": "datetime"
+    },
     "UUID": {
       "type": "customField",
       "customField": "plugin::strapi-advanced-uuid.uuid",
       "options": {
-        "uuid-format": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-        "disable-regenerate": true
-      }
+        "disable-regenerate": true,
+        "disable-auto-fill": true
+      },
+      "required": true
+    },
+    "duration": {
+      "type": "integer"
+    },
+    "isPaid": {
+      "type": "boolean",
+      "default": false
+    },
+    "note": {
+      "type": "richtext"
+    },
+    "category": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::category.category",
+      "inversedBy": "appointments"
+    },
+    "doctor": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::doctor.doctor",
+      "inversedBy": "appointments"
+    },
+    "date": {
+      "type": "date"
+    },
+    "isCancelled": {
+      "type": "boolean",
+      "default": false
+    },
+    "rating": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::rating.rating",
+      "mappedBy": "appointment"
+    },
+    "document1": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "document2": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images",
+        "videos",
+        "audios",
+        "files"
+      ]
+    },
+    "document3": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "document4": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "document5": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "document6": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "reason": {
+      "type": "string"
+    },
+    "someoneElse": {
+      "type": "component",
+      "component": "user.someone-else",
+      "repeatable": false
+    },
+    "docFromPatientA": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "isFromDoctor": {
+      "type": "boolean",
+      "default": false
+    },
+    "docFromPatientB": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "docFromPatientC": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "docFromPatientD": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "docFromPatientE": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "docFromPatientF": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images",
+        "files",
+        "videos",
+        "audios"
+      ]
+    },
+    "doctorNote": {
+      "type": "richtext"
+    },
+    "isOver": {
+      "type": "boolean",
+      "default": false
+    },
+    "isCancelledByPatient": {
+      "type": "boolean",
+      "default": false
+    },
+    "isOnline": {
+      "type": "boolean",
+      "default": false
+    },
+    "visioLink": {
+      "type": "string"
+    },
+    "reportings": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::reporting.reporting",
+      "mappedBy": "appointment"
     }
   }
 }

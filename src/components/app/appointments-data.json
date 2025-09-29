@@ -1,0 +1,30 @@
+{
+  "collectionName": "components_app_appointments_data",
+  "info": {
+    "displayName": "appointmentsData",
+    "icon": "calendar",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "StartTime": {
+      "type": "time"
+    },
+    "endTime": {
+      "type": "time"
+    },
+    "duration": {
+      "type": "integer"
+    },
+    "daysOff": {
+      "type": "string",
+      "regex": "^[0-6]+$"
+    },
+    "startBreak": {
+      "type": "time"
+    },
+    "endBreak": {
+      "type": "time"
+    }
+  }
+}

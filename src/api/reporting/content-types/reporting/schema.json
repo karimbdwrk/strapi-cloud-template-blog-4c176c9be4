@@ -1,0 +1,44 @@
+{
+  "kind": "collectionType",
+  "collectionName": "reportings",
+  "info": {
+    "singularName": "reporting",
+    "pluralName": "reportings",
+    "displayName": "Reporting"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "appointment": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::appointment.appointment",
+      "inversedBy": "reportings"
+    },
+    "patient": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "doctor": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::doctor.doctor"
+    },
+    "from": {
+      "type": "enumeration",
+      "enum": [
+        "doctor",
+        "patient"
+      ]
+    },
+    "reason": {
+      "type": "string"
+    },
+    "note": {
+      "type": "richtext"
+    }
+  }
+}
