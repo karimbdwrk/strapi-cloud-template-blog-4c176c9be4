@@ -12,6 +12,7 @@
     "strapi": "strapi"
   },
   "dependencies": {
+    "@strapi/icons": "^1.19.0",
     "@strapi/plugin-cloud": "5.15.0",
     "@strapi/plugin-users-permissions": "5.15.0",
     "@strapi/strapi": "5.15.0",
@@ -22,7 +23,7 @@
     "react-dom": "^18.0.0",
     "react-router-dom": "^6.0.0",
     "strapi-advanced-uuid": "^2.1.1",
-    "strapi-plugin-import-export-entries": "^1.23.1",
+    "strapi-import-export": "^0.0.1",
     "styled-components": "^6.0.0"
   },
   "devDependencies": {
