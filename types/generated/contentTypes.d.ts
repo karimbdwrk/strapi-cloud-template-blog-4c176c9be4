@@ -790,8 +790,20 @@ export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
       'oneToOne',
       'plugin::users-permissions.user'
     >;
-    UUID: Schema.Attribute.UID &
-      Schema.Attribute.CustomField<'plugin::strapi-advanced-uuid.uuid'>;
+    UUID: Schema.Attribute.UID<
+      undefined,
+      {
+        'disable-regenerate': true;
+        'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+      }
+    > &
+      Schema.Attribute.CustomField<
+        'plugin::strapi-advanced-uuid.uuid',
+        {
+          'disable-regenerate': true;
+          'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+        }
+      >;
     wednesday: Schema.Attribute.Component<'app.workday', false>;
   };
 }

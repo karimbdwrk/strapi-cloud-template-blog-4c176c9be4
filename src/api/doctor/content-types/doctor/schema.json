@@ -14,7 +14,11 @@
   "attributes": {
     "UUID": {
       "type": "customField",
-      "customField": "plugin::strapi-advanced-uuid.uuid"
+      "customField": "plugin::strapi-advanced-uuid.uuid",
+      "options": {
+        "disable-regenerate": true,
+        "uuid-format": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+      }
     },
     "lastname": {
       "type": "string"
