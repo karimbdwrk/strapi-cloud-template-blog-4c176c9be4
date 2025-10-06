@@ -793,6 +793,7 @@ export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
     UUID: Schema.Attribute.UID<
       undefined,
       {
+        'disable-auto-fill': true;
         'disable-regenerate': true;
         'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
       }
@@ -800,6 +801,7 @@ export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
       Schema.Attribute.CustomField<
         'plugin::strapi-advanced-uuid.uuid',
         {
+          'disable-auto-fill': true;
           'disable-regenerate': true;
           'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
         }
