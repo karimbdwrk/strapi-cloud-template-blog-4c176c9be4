@@ -1,5 +1,5 @@
 {
-  "name": "my-app-name",
+  "name": "doctoobib-administration",
   "version": "0.1.0",
   "private": true,
   "description": "A Strapi application",
@@ -14,9 +14,9 @@
   "dependencies": {
     "@strapi/design-system": "^1.19.0",
     "@strapi/icons": "^1.19.0",
-    "@strapi/plugin-cloud": "5.15.0",
-    "@strapi/plugin-users-permissions": "5.15.0",
-    "@strapi/strapi": "5.15.0",
+    "@strapi/plugin-cloud": "5.27.0",
+    "@strapi/plugin-users-permissions": "5.27.0",
+    "@strapi/strapi": "5.27.0",
     "better-sqlite3": "11.3.0",
     "fs-extra": "^10.0.0",
     "mime-types": "^2.1.27",
