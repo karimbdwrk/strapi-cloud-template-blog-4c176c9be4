@@ -44,6 +44,20 @@ export interface AppAddressGlobal extends Struct.ComponentSchema {
   };
 }
 
+export interface AppAppointmentAddress extends Struct.ComponentSchema {
+  collectionName: 'components_app_appointment_addresses';
+  info: {
+    displayName: 'appointmentAddress';
+    icon: 'pinMap';
+  };
+  attributes: {
+    city: Schema.Attribute.String;
+    country: Schema.Attribute.String;
+    line: Schema.Attribute.String;
+    postcode: Schema.Attribute.String;
+  };
+}
+
 export interface AppAppointmentsData extends Struct.ComponentSchema {
   collectionName: 'components_app_appointments_data';
   info: {
@@ -334,6 +348,7 @@ declare module '@strapi/strapi' {
       'app.address': AppAddress;
       'app.address-doctor': AppAddressDoctor;
       'app.address-global': AppAddressGlobal;
+      'app.appointment-address': AppAppointmentAddress;
       'app.appointments-data': AppAppointmentsData;
       'app.carousel': AppCarousel;
       'app.diploma': AppDiploma;

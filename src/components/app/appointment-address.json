@@ -1,0 +1,23 @@
+{
+  "collectionName": "components_app_appointment_addresses",
+  "info": {
+    "displayName": "appointmentAddress",
+    "icon": "pinMap"
+  },
+  "options": {},
+  "attributes": {
+    "line": {
+      "type": "string"
+    },
+    "postcode": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "country": {
+      "type": "string"
+    }
+  },
+  "config": {}
+}

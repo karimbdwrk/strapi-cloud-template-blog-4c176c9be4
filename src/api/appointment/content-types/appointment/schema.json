@@ -226,6 +226,11 @@
       "relation": "oneToMany",
       "target": "api::reporting.reporting",
       "mappedBy": "appointment"
+    },
+    "appointmentAddress": {
+      "type": "component",
+      "component": "app.appointment-address",
+      "repeatable": false
     }
   }
 }
