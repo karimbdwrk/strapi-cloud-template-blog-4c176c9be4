@@ -938,6 +938,34 @@ export interface ApiLanguageLanguage extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiNewsletterNewsletter extends Struct.CollectionTypeSchema {
+  collectionName: 'newsletters';
+  info: {
+    displayName: 'Newsletter';
+    pluralName: 'newsletters';
+    singularName: 'newsletter';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    email: Schema.Attribute.Email;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::newsletter.newsletter'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiOfficeOffice extends Struct.CollectionTypeSchema {
   collectionName: 'offices';
   info: {
@@ -1723,6 +1751,7 @@ declare module '@strapi/strapi' {
       'api::doctor.doctor': ApiDoctorDoctor;
       'api::global.global': ApiGlobalGlobal;
       'api::language.language': ApiLanguageLanguage;
+      'api::newsletter.newsletter': ApiNewsletterNewsletter;
       'api::office.office': ApiOfficeOffice;
       'api::rating.rating': ApiRatingRating;
       'api::reporting.reporting': ApiReportingReporting;
