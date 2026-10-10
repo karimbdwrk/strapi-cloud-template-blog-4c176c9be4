@@ -11,6 +11,11 @@
   },
   "pluginOptions": {},
   "attributes": {
+    "title": {
+      "type": "string",
+      "maxLength": 120,
+      "required": true
+    },
     "recipient": {
       "type": "relation",
       "relation": "manyToOne",
@@ -19,6 +24,7 @@
     },
     "type": {
       "type": "enumeration",
+      "required": true,
       "enum": [
         "appointment_booked",
         "appointment_added_by_doctor",
@@ -61,7 +67,7 @@
       "target": "api::appointment.appointment",
       "inversedBy": "notifications"
     },
-    "emailSendAt": {
+    "emailSentAt": {
       "type": "datetime"
     }
   }

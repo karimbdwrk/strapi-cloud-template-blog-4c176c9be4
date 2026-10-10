@@ -996,7 +996,7 @@ export interface ApiNotificationNotification
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
     dedupeKey: Schema.Attribute.String & Schema.Attribute.Unique;
-    emailSendAt: Schema.Attribute.DateTime;
+    emailSentAt: Schema.Attribute.DateTime;
     link: Schema.Attribute.String;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
@@ -1010,6 +1010,11 @@ export interface ApiNotificationNotification
       'manyToOne',
       'plugin::users-permissions.user'
     >;
+    title: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+      }>;
     type: Schema.Attribute.Enumeration<
       [
         'appointment_booked',
@@ -1033,7 +1038,8 @@ export interface ApiNotificationNotification
         'admin_report',
         'admin_support',
       ]
-    >;
+    > &
+      Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
