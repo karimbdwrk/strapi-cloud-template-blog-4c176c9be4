@@ -1,5 +1,6 @@
 'use strict';
 const bootstrap = require("./bootstrap");
+const registerNotifications = require("./notifications");
 
 module.exports = {
   /**
@@ -8,7 +9,10 @@ module.exports = {
    *
    * This gives you an opportunity to extend code.
    */
-  register(/*{ strapi }*/) {},
+  register({ strapi }) {
+    // Création automatique des notifications (support, rendez-vous, avis…)
+    registerNotifications(strapi);
+  },
 
   /**
    * An asynchronous bootstrap function that runs before

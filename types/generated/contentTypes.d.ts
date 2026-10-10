@@ -1198,7 +1198,7 @@ export interface ApiSupportMessageSupportMessage
     singularName: 'support-message';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
     body: Schema.Attribute.Text;

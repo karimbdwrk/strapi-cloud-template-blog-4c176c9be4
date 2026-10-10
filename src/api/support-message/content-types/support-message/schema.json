@@ -7,7 +7,7 @@
     "displayName": "support-message"
   },
   "options": {
-    "draftAndPublish": true
+    "draftAndPublish": false
   },
   "pluginOptions": {},
   "attributes": {
