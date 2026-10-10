@@ -231,6 +231,18 @@
       "type": "component",
       "component": "app.appointment-address",
       "repeatable": false
+    },
+    "support_tickets": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::support-ticket.support-ticket",
+      "mappedBy": "appointment"
+    },
+    "notifications": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::notification.notification",
+      "mappedBy": "appointment"
     }
   }
 }

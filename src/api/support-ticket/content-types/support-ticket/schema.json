@@ -1,0 +1,59 @@
+{
+  "kind": "collectionType",
+  "collectionName": "support_tickets",
+  "info": {
+    "singularName": "support-ticket",
+    "pluralName": "support-tickets",
+    "displayName": "support-ticket"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "subject": {
+      "type": "string"
+    },
+    "category": {
+      "type": "enumeration",
+      "enum": [
+        "appointment",
+        "account",
+        "profile",
+        "payment",
+        "technical",
+        "other"
+      ]
+    },
+    "ticketStatus": {
+      "type": "enumeration",
+      "default": "open",
+      "enum": [
+        "open",
+        "pending",
+        "resolved"
+      ]
+    },
+    "lastMessageAt": {
+      "type": "datetime"
+    },
+    "users_permissions_user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "support_tickets"
+    },
+    "appointment": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::appointment.appointment",
+      "inversedBy": "support_tickets"
+    },
+    "support_messages": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::support-message.support-message",
+      "mappedBy": "support_ticket"
+    }
+  }
+}

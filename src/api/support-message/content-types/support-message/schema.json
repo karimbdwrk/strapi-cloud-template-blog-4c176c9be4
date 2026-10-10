@@ -1,0 +1,33 @@
+{
+  "kind": "collectionType",
+  "collectionName": "support_messages",
+  "info": {
+    "singularName": "support-message",
+    "pluralName": "support-messages",
+    "displayName": "support-message"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "body": {
+      "type": "text"
+    },
+    "fromAdmin": {
+      "type": "boolean"
+    },
+    "support_ticket": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::support-ticket.support-ticket",
+      "inversedBy": "support_messages"
+    },
+    "users_permissions_user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "support_messages"
+    }
+  }
+}

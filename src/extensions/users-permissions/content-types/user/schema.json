@@ -11,6 +11,7 @@
   "options": {
     "draftAndPublish": false
   },
+  "pluginOptions": {},
   "attributes": {
     "username": {
       "type": "string",
@@ -71,10 +72,10 @@
     },
     "UUID": {
       "type": "customField",
+      "customField": "plugin::strapi-advanced-uuid.uuid",
       "options": {
         "uuid-format": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-      },
-      "customField": "plugin::strapi-advanced-uuid.uuid"
+      }
     },
     "phone": {
       "type": "string",
@@ -115,6 +116,24 @@
     },
     "lastname": {
       "type": "string"
+    },
+    "support_tickets": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::support-ticket.support-ticket",
+      "mappedBy": "users_permissions_user"
+    },
+    "support_messages": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::support-message.support-message",
+      "mappedBy": "users_permissions_user"
+    },
+    "notifications": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::notification.notification",
+      "mappedBy": "recipient"
     }
   }
 }

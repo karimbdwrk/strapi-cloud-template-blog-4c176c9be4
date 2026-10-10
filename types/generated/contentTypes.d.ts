@@ -522,6 +522,10 @@ export interface ApiAppointmentAppointment extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     note: Schema.Attribute.RichText;
+    notifications: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::notification.notification'
+    >;
     patient: Schema.Attribute.Relation<
       'manyToOne',
       'plugin::users-permissions.user'
@@ -534,6 +538,10 @@ export interface ApiAppointmentAppointment extends Struct.CollectionTypeSchema {
       'api::reporting.reporting'
     >;
     someoneElse: Schema.Attribute.Component<'user.someone-else', false>;
+    support_tickets: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::support-ticket.support-ticket'
+    >;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -819,6 +827,7 @@ export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
     gender: Schema.Attribute.String;
     holidays: Schema.Attribute.Component<'app.holidays', true>;
     isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    isRecommended: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     languages: Schema.Attribute.Relation<
       'manyToMany',
       'api::language.language'
@@ -966,6 +975,71 @@ export interface ApiNewsletterNewsletter extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiNotificationNotification
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'notifications';
+  info: {
+    displayName: 'notification';
+    pluralName: 'notifications';
+    singularName: 'notification';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    appointment: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::appointment.appointment'
+    >;
+    body: Schema.Attribute.Text;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    dedupeKey: Schema.Attribute.String & Schema.Attribute.Unique;
+    emailSendAt: Schema.Attribute.DateTime;
+    link: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::notification.notification'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    readAt: Schema.Attribute.DateTime;
+    recipient: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    type: Schema.Attribute.Enumeration<
+      [
+        'appointment_booked',
+        'appointment_added_by_doctor',
+        'appointment_cancelled',
+        'appointment_reminder',
+        'appointment_to_close',
+        'visio_link_added',
+        'note_added',
+        'document_added',
+        'review_request',
+        'review_received',
+        'account_validated',
+        'account_suspended',
+        'account_reactivated',
+        'recommended_granted',
+        'recommended_removed',
+        'support_reply',
+        'support_resolved',
+        'admin_doctor_pending',
+        'admin_report',
+        'admin_support',
+      ]
+    >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiOfficeOffice extends Struct.CollectionTypeSchema {
   collectionName: 'offices';
   info: {
@@ -1106,6 +1180,93 @@ export interface ApiReportingReporting extends Struct.CollectionTypeSchema {
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+  };
+}
+
+export interface ApiSupportMessageSupportMessage
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'support_messages';
+  info: {
+    displayName: 'support-message';
+    pluralName: 'support-messages';
+    singularName: 'support-message';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    body: Schema.Attribute.Text;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    fromAdmin: Schema.Attribute.Boolean;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::support-message.support-message'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    support_ticket: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::support-ticket.support-ticket'
+    >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    users_permissions_user: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+  };
+}
+
+export interface ApiSupportTicketSupportTicket
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'support_tickets';
+  info: {
+    displayName: 'support-ticket';
+    pluralName: 'support-tickets';
+    singularName: 'support-ticket';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    appointment: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::appointment.appointment'
+    >;
+    category: Schema.Attribute.Enumeration<
+      ['appointment', 'account', 'profile', 'payment', 'technical', 'other']
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    lastMessageAt: Schema.Attribute.DateTime;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::support-ticket.support-ticket'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    subject: Schema.Attribute.String;
+    support_messages: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::support-message.support-message'
+    >;
+    ticketStatus: Schema.Attribute.Enumeration<
+      ['open', 'pending', 'resolved']
+    > &
+      Schema.Attribute.DefaultTo<'open'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    users_permissions_user: Schema.Attribute.Relation<
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
   };
 }
 
@@ -1684,6 +1845,10 @@ export interface PluginUsersPermissionsUser
       'plugin::users-permissions.user'
     > &
       Schema.Attribute.Private;
+    notifications: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::notification.notification'
+    >;
     password: Schema.Attribute.Password &
       Schema.Attribute.Private &
       Schema.Attribute.SetMinMaxLength<{
@@ -1697,6 +1862,14 @@ export interface PluginUsersPermissionsUser
     role: Schema.Attribute.Relation<
       'manyToOne',
       'plugin::users-permissions.role'
+    >;
+    support_messages: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::support-message.support-message'
+    >;
+    support_tickets: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::support-ticket.support-ticket'
     >;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -1753,9 +1926,12 @@ declare module '@strapi/strapi' {
       'api::global.global': ApiGlobalGlobal;
       'api::language.language': ApiLanguageLanguage;
       'api::newsletter.newsletter': ApiNewsletterNewsletter;
+      'api::notification.notification': ApiNotificationNotification;
       'api::office.office': ApiOfficeOffice;
       'api::rating.rating': ApiRatingRating;
       'api::reporting.reporting': ApiReportingReporting;
+      'api::support-message.support-message': ApiSupportMessageSupportMessage;
+      'api::support-ticket.support-ticket': ApiSupportTicketSupportTicket;
       'api::user-record.user-record': ApiUserRecordUserRecord;
       'api::userinformation.userinformation': ApiUserinformationUserinformation;
       'plugin::content-releases.release': PluginContentReleasesRelease;

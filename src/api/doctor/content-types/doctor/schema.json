@@ -209,6 +209,10 @@
     },
     "gender": {
       "type": "string"
+    },
+    "isRecommended": {
+      "type": "boolean",
+      "default": false
     }
   }
 }

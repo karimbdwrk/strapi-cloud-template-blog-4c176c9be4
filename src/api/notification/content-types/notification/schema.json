@@ -1,0 +1,68 @@
+{
+  "kind": "collectionType",
+  "collectionName": "notifications",
+  "info": {
+    "singularName": "notification",
+    "pluralName": "notifications",
+    "displayName": "notification"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "recipient": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "notifications"
+    },
+    "type": {
+      "type": "enumeration",
+      "enum": [
+        "appointment_booked",
+        "appointment_added_by_doctor",
+        "appointment_cancelled",
+        "appointment_reminder",
+        "appointment_to_close",
+        "visio_link_added",
+        "note_added",
+        "document_added",
+        "review_request",
+        "review_received",
+        "account_validated",
+        "account_suspended",
+        "account_reactivated",
+        "recommended_granted",
+        "recommended_removed",
+        "support_reply",
+        "support_resolved",
+        "admin_doctor_pending",
+        "admin_report",
+        "admin_support"
+      ]
+    },
+    "body": {
+      "type": "text"
+    },
+    "link": {
+      "type": "string"
+    },
+    "readAt": {
+      "type": "datetime"
+    },
+    "dedupeKey": {
+      "type": "string",
+      "unique": true
+    },
+    "appointment": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::appointment.appointment",
+      "inversedBy": "notifications"
+    },
+    "emailSendAt": {
+      "type": "datetime"
+    }
+  }
+}
