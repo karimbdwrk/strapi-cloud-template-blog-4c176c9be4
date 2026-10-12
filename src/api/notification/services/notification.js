@@ -10,6 +10,7 @@
 const { createCoreService } = require('@strapi/strapi').factories;
 
 const UID = 'api::notification.notification';
+const { shouldEmail, renderEmail, sendEmail } = require('../../../notifications/email');
 
 const clip = (value, max) => (typeof value === 'string' && value.length > max ? `${value.slice(0, max - 1)}…` : value);
 
@@ -39,7 +40,7 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
 				if (exists) return null;
 			}
 
-			return await strapi.documents(UID).create({
+			const created = await strapi.documents(UID).create({
 				data: {
 					recipient,
 					type,
@@ -50,10 +51,35 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
 					dedupeKey: dedupeKey || null,
 				},
 			});
+
+			if (shouldEmail(type)) await this.emailNotification(created, recipient);
+			return created;
 		} catch (error) {
 			// Une notification ne doit jamais faire échouer l'action qui la déclenche
 			strapi.log.error(`[notification] Échec de création (${type}) : ${error.message}`);
 			return null;
+		}
+	},
+
+	/** Envoie la notification par email (une seule fois, tracé dans emailSendAt). */
+	async emailNotification(notification, recipientId) {
+		try {
+			const user = await strapi.db.query('plugin::users-permissions.user').findOne({
+				where: { id: recipientId },
+				select: ['email', 'blocked'],
+			});
+			if (!user?.email || user.blocked) return;
+
+			const { html, text } = renderEmail(notification);
+			const sent = await sendEmail({ to: user.email, subject: notification.title, html, text });
+			if (!sent) return; // RESEND_API_KEY absente : notification dans le site uniquement
+
+			await strapi.documents(UID).update({
+				documentId: notification.documentId,
+				data: { emailSendAt: new Date() },
+			});
+		} catch (error) {
+			strapi.log.error(`[notification] Email non envoyé (${notification.type}) : ${error.message}`);
 		}
 	},
 
