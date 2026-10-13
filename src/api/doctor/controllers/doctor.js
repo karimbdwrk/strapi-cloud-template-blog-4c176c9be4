@@ -71,8 +71,21 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		if (!own) return ctx.forbidden('Vous ne pouvez modifier que votre propre profil.');
 
 		const body = ctx.request.body || {};
-		ctx.request.body = { ...body, data: stripProtected(body.data) };
-		return super.update(ctx);
+		const data = stripProtected(body.data);
+		ctx.request.body = { ...body, data };
+		const response = await super.update(ctx);
+
+		// Nom et prénom du compte alignés sur ceux du profil praticien
+		if (data.firstname || data.lastname) {
+			await strapi.db.query(USER_UID).update({
+				where: { id: user.id },
+				data: {
+					...(data.firstname && { firstname: data.firstname }),
+					...(data.lastname && { lastname: data.lastname }),
+				},
+			});
+		}
+		return response;
 	},
 
 	async delete(ctx) {
