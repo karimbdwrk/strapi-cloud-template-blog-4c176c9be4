@@ -3,7 +3,7 @@
 // Fuseau des textes de notification (les dates sont stockées en UTC)
 const TIME_ZONE = 'Europe/Paris';
 
-const fullName = (p) => [p?.firstname, p?.lastname].filter(Boolean).join(' ');
+const fullName = (p) => [p?.lastname, p?.firstname].filter(Boolean).join(' ');
 
 /** « mardi 14 octobre à 09:30 » */
 const formatWhen = (iso) => {

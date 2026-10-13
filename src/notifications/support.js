@@ -10,7 +10,7 @@
 const MESSAGE_UID = 'api::support-message.support-message';
 const TICKET_UID = 'api::support-ticket.support-ticket';
 
-const fullName = (u) => [u?.firstname, u?.lastname].filter(Boolean).join(' ') || u?.username || u?.email || 'Un utilisateur';
+const fullName = (u) => [u?.lastname, u?.firstname].filter(Boolean).join(' ') || u?.username || u?.email || 'Un utilisateur';
 
 const onMessageCreated = async (strapi, created) => {
 	const notifications = strapi.service('api::notification.notification');
