@@ -15,6 +15,12 @@
     "name": {
       "type": "string"
     },
+    "professionName": {
+      "type": "string"
+    },
+    "professionNameFeminine": {
+      "type": "string"
+    },
     "slug": {
       "type": "uid"
     },
