@@ -83,7 +83,20 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 			delete data.users_permissions_user;
 			ctx.request.body = { ...body, data };
 		}
-		return super.update(ctx);
+		const response = await super.update(ctx);
+
+		// Nom et prénom du compte alignés sur ceux du dossier (propriétaire du dossier)
+		const { firstname, lastname } = ctx.request.body?.data || {};
+		if (!isAdmin(user) && (firstname || lastname)) {
+			await strapi.db.query(USER_UID).update({
+				where: { id: user.id },
+				data: {
+					...(firstname && { firstname }),
+					...(lastname && { lastname }),
+				},
+			});
+		}
+		return response;
 	},
 
 	async delete(ctx) {
