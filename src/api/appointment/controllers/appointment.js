@@ -13,6 +13,34 @@ const isAdmin = (user) => user?.role?.name === ADMIN_ROLE;
 
 module.exports = createCoreController(UID, ({ strapi }) => ({
 	/**
+	 * GET /appointments
+	 * Un filtre sur le patient (« mes rendez-vous ») est remplacé côté serveur
+	 * par le compte connecté : Strapi refuserait (400) un filtre sur la relation
+	 * vers le modèle User, et un utilisateur ne peut pas lister ceux d'un autre patient.
+	 * Les autres lectures (agenda d'un praticien, créneaux pris) sont inchangées.
+	 */
+	async find(ctx) {
+		const user = ctx.state.user;
+		const filters = ctx.query?.filters;
+		if (isAdmin(user) || !filters || typeof filters !== 'object' || !('patient' in filters)) {
+			return super.find(ctx);
+		}
+		if (!user) return ctx.unauthorized();
+
+		const { patient, ...otherFilters } = filters;
+		ctx.query = { ...ctx.query, filters: otherFilters };
+		await this.validateQuery(ctx);
+		const sanitizedQuery = await this.sanitizeQuery(ctx);
+
+		const { results, pagination } = await strapi.service(UID).find({
+			...sanitizedQuery,
+			filters: { $and: [sanitizedQuery.filters || {}, { patient: { id: user.id } }] },
+		});
+		const sanitizedResults = await this.sanitizeOutput(results, ctx);
+		return this.transformResponse(sanitizedResults, { pagination });
+	},
+
+	/**
 	 * POST /appointments
 	 * Le patient est toujours le compte connecté, rattaché par le serveur :
 	 * le navigateur ne choisit pas le patient, et Strapi refuserait (400)
