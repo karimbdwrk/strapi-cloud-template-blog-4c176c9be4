@@ -210,6 +210,9 @@
     "gender": {
       "type": "string"
     },
+    "validatedAt": {
+      "type": "datetime"
+    },
     "isRecommended": {
       "type": "boolean",
       "default": false

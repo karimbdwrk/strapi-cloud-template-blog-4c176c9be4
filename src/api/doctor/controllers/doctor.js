@@ -15,7 +15,7 @@ const { createCoreController } = require('@strapi/strapi').factories;
 const UID = 'api::doctor.doctor';
 const USER_UID = 'plugin::users-permissions.user';
 const ADMIN_ROLE = 'SuperAdmin';
-const PROTECTED_FIELDS = ['isActive', 'isRecommended', 'users_permissions_user'];
+const PROTECTED_FIELDS = ['isActive', 'isRecommended', 'validatedAt', 'users_permissions_user'];
 
 const isAdmin = (user) => user?.role?.name === ADMIN_ROLE;
 
