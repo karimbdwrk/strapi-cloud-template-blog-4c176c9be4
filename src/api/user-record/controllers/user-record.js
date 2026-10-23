@@ -59,11 +59,19 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 	async find(ctx) {
 		const user = ctx.state.user;
 		if (!user) return ctx.unauthorized();
-		if (!isAdmin(user)) {
-			// Filtre imposé : le dossier de l'utilisateur connecté uniquement
-			ctx.query = { ...ctx.query, filters: { users_permissions_user: { id: user.id } } };
-		}
-		return super.find(ctx);
+		if (isAdmin(user)) return super.find(ctx);
+
+		// Filtre imposé : le dossier de l'utilisateur connecté uniquement.
+		// Il est ajouté après la validation de la requête : Strapi refuse (400) un filtre
+		// sur users_permissions_user quand le rôle n'a pas accès au modèle User.
+		await this.validateQuery(ctx);
+		const sanitizedQuery = await this.sanitizeQuery(ctx);
+		const { results, pagination } = await strapi.service(UID).find({
+			...sanitizedQuery,
+			filters: { users_permissions_user: { id: user.id } },
+		});
+		const sanitizedResults = await this.sanitizeOutput(results, ctx);
+		return this.transformResponse(sanitizedResults, { pagination });
 	},
 
 	async findOne(ctx) {
