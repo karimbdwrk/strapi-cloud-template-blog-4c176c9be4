@@ -96,8 +96,17 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		const user = ctx.state.user;
 		if (!user) return ctx.unauthorized();
 
+		// Mêmes filtres que unreadCount (fiables sur la relation recipient),
+		// puis mise à jour par identifiant : un UPDATE ne filtre pas bien sur une relation
+		const unread = await strapi.documents(UID).findMany({
+			filters: { recipient: { id: user.id }, readAt: { $null: true } },
+			fields: ['id'],
+		});
+		const ids = unread.map((n) => n.id);
+		if (!ids.length) return { data: { count: 0 } };
+
 		const { count } = await strapi.db.query(UID).updateMany({
-			where: { recipient: user.id, readAt: null },
+			where: { id: { $in: ids } },
 			data: { readAt: new Date() },
 		});
 		return { data: { count } };
