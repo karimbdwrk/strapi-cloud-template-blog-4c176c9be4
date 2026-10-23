@@ -29,7 +29,7 @@
     },
     "appointmentPhone": {
       "type": "string",
-      "regex": "^\\d+$"
+      "regex": "^\\+?[\\d ]+$"
     },
     "users_permissions_user": {
       "type": "relation",
