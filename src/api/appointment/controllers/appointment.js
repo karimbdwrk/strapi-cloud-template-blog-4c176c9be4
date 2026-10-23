@@ -11,32 +11,90 @@ const ADMIN_ROLE = 'SuperAdmin';
 
 const isAdmin = (user) => user?.role?.name === ADMIN_ROLE;
 
+// populate=* ou toute demande qui inclut la relation patient (patient, patient.user_record…)
+const wantsPatient = (populate) =>
+	populate === '*' || /(^|[^A-Za-z])patient([^A-Za-z]|$)/.test(JSON.stringify(populate ?? ''));
+
+// Champs du patient transmis au praticien : identité, contact et dossier (jamais le mot de passe, le rôle…)
+const PATIENT_POPULATE = {
+	fields: ['id', 'documentId', 'firstname', 'lastname', 'email'],
+	populate: {
+		user_record: {
+			fields: ['documentId', 'firstname', 'lastname', 'phone'],
+			populate: {
+				healthRecord: true,
+				addressUser: true,
+				healthInformations: true,
+				languages: { fields: ['title', 'code'] },
+			},
+		},
+	},
+};
+
+/** Ajoute le patient aux rendez-vous dont le demandeur est le praticien ou le patient. */
+const attachPatients = async (strapi, appointments, user) => {
+	const list = Array.isArray(appointments) ? appointments : [appointments];
+	const ids = list.map((a) => a?.documentId).filter(Boolean);
+	if (!ids.length) return;
+
+	const rows = await strapi.documents(UID).findMany({
+		filters: { documentId: { $in: ids } },
+		fields: ['documentId'],
+		populate: {
+			doctor: { fields: ['id'], populate: { users_permissions_user: { fields: ['id'] } } },
+			patient: PATIENT_POPULATE,
+		},
+		limit: ids.length,
+	});
+	const byId = new Map(rows.map((r) => [r.documentId, r]));
+
+	for (const appointment of list) {
+		const row = byId.get(appointment.documentId);
+		const patient = row?.patient;
+		if (!patient) continue;
+		const isOwnDoctor = row.doctor?.users_permissions_user?.id === user.id;
+		const isPatient = patient.id === user.id;
+		if (isOwnDoctor || isPatient) appointment.patient = patient;
+	}
+};
+
 module.exports = createCoreController(UID, ({ strapi }) => ({
 	/**
 	 * GET /appointments
-	 * Un filtre sur le patient (« mes rendez-vous ») est remplacé côté serveur
-	 * par le compte connecté : Strapi refuserait (400) un filtre sur la relation
-	 * vers le modèle User, et un utilisateur ne peut pas lister ceux d'un autre patient.
+	 *
+	 * - Un filtre sur le patient (« mes rendez-vous ») est remplacé côté serveur
+	 *   par le compte connecté : Strapi refuserait (400) un filtre sur la relation
+	 *   vers le modèle User, et un utilisateur ne liste pas ceux d'un autre patient.
+	 * - Quand le patient est demandé (populate), Strapi le retire de la réponse
+	 *   (le rôle n'a pas accès au modèle User) : il est ajouté ici, avec son dossier,
+	 *   uniquement pour le praticien du rendez-vous et pour le patient lui-même.
 	 * Les autres lectures (agenda d'un praticien, créneaux pris) sont inchangées.
 	 */
 	async find(ctx) {
 		const user = ctx.state.user;
-		const filters = ctx.query?.filters;
-		if (isAdmin(user) || !filters || typeof filters !== 'object' || !('patient' in filters)) {
-			return super.find(ctx);
-		}
-		if (!user) return ctx.unauthorized();
+		if (isAdmin(user)) return super.find(ctx);
 
-		const { patient, ...otherFilters } = filters;
-		ctx.query = { ...ctx.query, filters: otherFilters };
+		const filters = ctx.query?.filters;
+		const forcePatient = Boolean(filters && typeof filters === 'object' && 'patient' in filters);
+		if (forcePatient && !user) return ctx.unauthorized();
+		const withPatient = Boolean(user) && wantsPatient(ctx.query?.populate);
+		if (!forcePatient && !withPatient) return super.find(ctx);
+
+		if (forcePatient) {
+			const { patient, ...otherFilters } = filters;
+			ctx.query = { ...ctx.query, filters: otherFilters };
+		}
 		await this.validateQuery(ctx);
 		const sanitizedQuery = await this.sanitizeQuery(ctx);
 
 		const { results, pagination } = await strapi.service(UID).find({
 			...sanitizedQuery,
-			filters: { $and: [sanitizedQuery.filters || {}, { patient: { id: user.id } }] },
+			...(forcePatient && {
+				filters: { $and: [sanitizedQuery.filters || {}, { patient: { id: user.id } }] },
+			}),
 		});
 		const sanitizedResults = await this.sanitizeOutput(results, ctx);
+		if (withPatient) await attachPatients(strapi, sanitizedResults, user);
 		return this.transformResponse(sanitizedResults, { pagination });
 	},
 
