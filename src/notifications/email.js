@@ -54,12 +54,29 @@ const frontUrl = () => (process.env.FRONT_URL || 'http://localhost:3010').replac
 /**
  * Gabarit des emails Meyana.
  * Notifications : { type, title, body, link }.
- * Emails de compte : { title, paragraphs: [...], link, cta, footer } (bouton et pied de page sur mesure).
+ * Emails détaillés : { title, paragraphs: [...], details: [[libellé, valeur]], notes: [...],
+ *                     link, cta, footer } (bloc récapitulatif, consignes, bouton et pied sur mesure).
  */
-const renderEmail = ({ type, title, body, paragraphs, link, cta: ctaText, footer }) => {
+const renderEmail = ({ type, title, body, paragraphs, details, notes, link, cta: ctaText, footer }) => {
 	const url = link ? `${frontUrl()}${link}` : `${frontUrl()}/dashboard`;
 	const cta = ctaText || ctaLabel(type || '');
 	const lines = paragraphs || (body ? [body] : []);
+	const rows = (details || []).filter(([, value]) => value);
+	const detailsHtml = rows.length
+		? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#fbf7f4;border:1px solid #ece3db;border-radius:14px">
+${rows
+	.map(
+		([label, value], i) =>
+			`<tr><td style="padding:12px 16px;${i ? 'border-top:1px solid #ece3db;' : ''}font-size:12px;color:#7a7a7a;width:34%;vertical-align:top">${escapeHtml(label)}</td><td style="padding:12px 16px 12px 0;${i ? 'border-top:1px solid #ece3db;' : ''}font-size:14px;line-height:1.5;color:#1e352f;font-weight:bold;vertical-align:top">${escapeHtml(value).replace(/\n/g, '<br>')}</td></tr>`
+	)
+	.join('\n')}
+</table>`
+		: '';
+	const notesHtml = notes?.length
+		? `<ul style="margin:24px 0 0;padding:0 0 0 18px;font-size:13px;line-height:1.6;color:#5a5a5a">${notes
+				.map((note) => `<li style="margin:0 0 6px">${escapeHtml(note)}</li>`)
+				.join('')}</ul>`
+		: '';
 	const footerHtml = footer
 		? escapeHtml(footer)
 		: `Vous recevez cet email car vous avez un compte Meyana. Retrouvez toutes vos notifications dans <a href="${escapeHtml(`${frontUrl()}/notifications`)}" style="color:#4b5a43">votre espace</a>.`;
@@ -77,21 +94,28 @@ ${lines
 			`<p style="margin:0 0 ${i === lines.length - 1 ? 24 : 12}px;font-size:15px;line-height:1.6;color:#4a4a4a">${escapeHtml(line)}</p>`
 	)
 	.join('\n')}
+${detailsHtml}
 <a href="${escapeHtml(url)}" style="display:inline-block;background:#1e352f;color:#fbf7f4;text-decoration:none;font-size:14px;font-weight:bold;padding:12px 22px;border-radius:999px">${escapeHtml(cta)}</a>
+${notesHtml}
 </td></tr>
 <tr><td style="padding:20px 4px 0;font-size:12px;line-height:1.6;color:#8a8a8a">
 ${footerHtml}<br>
 Meyana ne remplace pas un avis médical d’urgence : en cas d’urgence, composez le 15 ou le 112.
 </td></tr>
 </table></td></tr></table></body></html>`;
-	const text = `${title}\n\n${lines.map((line) => `${line}\n\n`).join('')}${cta} : ${url}${footer ? `\n\n${footer}` : ''}\n\n—\nMeyana. En cas d'urgence, composez le 15 ou le 112.`;
+	const detailsText = rows.length ? `${rows.map(([label, value]) => `${label} : ${String(value).replace(/\n/g, ', ')}`).join('\n')}\n\n` : '';
+	const notesText = notes?.length ? `\n\n${notes.map((note) => `- ${note}`).join('\n')}` : '';
+	const text = `${title}\n\n${lines.map((line) => `${line}\n\n`).join('')}${detailsText}${cta} : ${url}${notesText}${footer ? `\n\n${footer}` : ''}\n\n—\nMeyana. En cas d'urgence, composez le 15 ou le 112.`;
 	return { html, text };
 };
 
 const shouldEmail = (type) => EMAIL_TYPES.has(type);
 
-/** Envoie l'email via l'API Resend. Renvoie true si accepté. */
-const sendEmail = async ({ to, subject, html, text }) => {
+/**
+ * Envoie l'email via l'API Resend. Renvoie true si accepté.
+ * attachments : [{ filename, content (base64), contentType? }]
+ */
+const sendEmail = async ({ to, subject, html, text, attachments }) => {
 	const apiKey = process.env.RESEND_API_KEY;
 	if (!apiKey) return false;
 	const res = await fetch('https://api.resend.com/emails', {
@@ -103,6 +127,13 @@ const sendEmail = async ({ to, subject, html, text }) => {
 			subject,
 			html,
 			text,
+			...(attachments?.length && {
+				attachments: attachments.map(({ filename, content, contentType }) => ({
+					filename,
+					content,
+					...(contentType && { content_type: contentType }),
+				})),
+			}),
 		}),
 	});
 	if (!res.ok) {

@@ -20,6 +20,7 @@
  */
 
 const { fullName, formatWhen, today, notifier } = require('./helpers');
+const { patientBookedEmail, doctorBookedEmail } = require('./appointment-emails');
 
 const UID = 'api::appointment.appointment';
 const DOCTOR_DOCS = ['document1', 'document2', 'document3', 'document4', 'document5', 'document6'];
@@ -31,9 +32,11 @@ const loadAppointment = (strapi, documentId) =>
 		populate: {
 			patient: { fields: ['id', 'firstname', 'lastname'] },
 			doctor: {
-				fields: ['firstname', 'lastname'],
-				populate: { users_permissions_user: { fields: ['id'] } },
+				fields: ['firstname', 'lastname', 'gender'],
+				populate: { users_permissions_user: { fields: ['id'] }, priceRange: true },
 			},
+			category: { fields: ['name', 'professionName', 'professionNameFeminine'] },
+			appointmentAddress: true,
 			someoneElse: true,
 			rating: { fields: ['id'] },
 		},
@@ -80,6 +83,7 @@ const onCreate = async (strapi, created) => {
 			link: c.link,
 			appointment: a.documentId,
 			dedupeKey: `appointment_booked:doctor:${a.documentId}`,
+			email: doctorBookedEmail(a),
 		}),
 		n.notify({
 			recipient: c.patientUserId,
@@ -89,6 +93,7 @@ const onCreate = async (strapi, created) => {
 			link: c.link,
 			appointment: a.documentId,
 			dedupeKey: `appointment_booked:patient:${a.documentId}`,
+			email: patientBookedEmail(a),
 		}),
 	]);
 };

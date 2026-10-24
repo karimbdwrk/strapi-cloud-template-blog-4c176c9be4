@@ -26,9 +26,11 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
 	 * @param {string}  [params.link]        chemin interne commençant par « / »
 	 * @param {string}  [params.appointment] documentId du rendez-vous lié
 	 * @param {string}  [params.dedupeKey]   clé anti-doublon (ex. « appointment_reminder:abc »)
+	 * @param {object}  [params.email]       email sur mesure { subject, html, text, attachments },
+	 *                                       à la place du gabarit générique de notification
 	 * @returns la notification créée, ou null si ignorée (doublon, destinataire absent, erreur)
 	 */
-	async notify({ recipient, type, title, body, link, appointment, dedupeKey }) {
+	async notify({ recipient, type, title, body, link, appointment, dedupeKey, email }) {
 		if (!recipient || !type || !title) return null;
 
 		// Liens internes uniquement
@@ -52,7 +54,7 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
 				},
 			});
 
-			if (shouldEmail(type)) await this.emailNotification(created, recipient);
+			if (shouldEmail(type)) await this.emailNotification(created, recipient, email);
 			return created;
 		} catch (error) {
 			// Une notification ne doit jamais faire échouer l'action qui la déclenche
@@ -61,8 +63,8 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
 		}
 	},
 
-	/** Envoie la notification par email (une seule fois, tracé dans emailSendAt). */
-	async emailNotification(notification, recipientId) {
+	/** Envoie la notification par email (une seule fois, tracé dans emailSentAt). */
+	async emailNotification(notification, recipientId, custom) {
 		try {
 			const user = await strapi.db.query('plugin::users-permissions.user').findOne({
 				where: { id: recipientId },
@@ -70,13 +72,13 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
 			});
 			if (!user?.email || user.blocked) return;
 
-			const { html, text } = renderEmail(notification);
-			const sent = await sendEmail({ to: user.email, subject: notification.title, html, text });
+			const message = custom || { subject: notification.title, ...renderEmail(notification) };
+			const sent = await sendEmail({ to: user.email, ...message });
 			if (!sent) return; // RESEND_API_KEY absente : notification dans le site uniquement
 
 			await strapi.documents(UID).update({
 				documentId: notification.documentId,
-				data: { emailSendAt: new Date() },
+				data: { emailSentAt: new Date() },
 			});
 		} catch (error) {
 			strapi.log.error(`[notification] Email non envoyé (${notification.type}) : ${error.message}`);
