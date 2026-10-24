@@ -12,6 +12,11 @@
   },
   "pluginOptions": {},
   "attributes": {
+    "slotKey": {
+      "type": "string",
+      "private": true,
+      "configurable": false
+    },
     "patient": {
       "type": "relation",
       "relation": "manyToOne",

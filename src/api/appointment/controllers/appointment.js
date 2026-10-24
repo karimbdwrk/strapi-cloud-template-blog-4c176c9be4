@@ -17,6 +17,7 @@
  */
 
 const { createCoreController } = require('@strapi/strapi').factories;
+const { slotKeyFor, isUniqueViolation } = require('../../../appointment-slots');
 
 const UID = 'api::appointment.appointment';
 const DOCTOR_UID = 'api::doctor.doctor';
@@ -315,10 +316,25 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		await this.validateInput(data, ctx);
 		const sanitizedInput = await this.sanitizeInput(data, ctx);
 
-		const entity = await strapi.service(UID).create({
-			...sanitizedQuery,
-			data: { ...sanitizedInput, ...(forConnectedPatient && !inOwnAgenda && { patient: user.id }) },
-		});
+		let entity;
+		try {
+			entity = await strapi.service(UID).create({
+				...sanitizedQuery,
+				data: {
+					...sanitizedInput,
+					...(forConnectedPatient && !inOwnAgenda && { patient: user.id }),
+					// Verrou en base : une seconde réservation simultanée du même créneau est refusée
+					slotKey: slotKeyFor(doctor.id, start),
+				},
+			});
+		} catch (error) {
+			if (isUniqueViolation(error)) {
+				return ctx.conflict
+					? ctx.conflict('Ce créneau vient d’être réservé. Choisissez-en un autre.')
+					: ctx.badRequest('Ce créneau vient d’être réservé. Choisissez-en un autre.');
+			}
+			throw error;
+		}
 		const sanitizedEntity = await this.sanitizeOutput(entity, ctx);
 		ctx.status = 201;
 		return this.transformResponse(sanitizedEntity);

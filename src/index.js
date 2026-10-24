@@ -1,6 +1,7 @@
 'use strict';
-const bootstrap = require("./bootstrap");
+const seedBootstrap = require("./bootstrap");
 const registerNotifications = require("./notifications");
+const { registerSlotRelease, ensureSlotIndex } = require("./appointment-slots");
 
 module.exports = {
   /**
@@ -12,6 +13,8 @@ module.exports = {
   register({ strapi }) {
     // Création automatique des notifications (support, rendez-vous, avis…)
     registerNotifications(strapi);
+    // Un rendez-vous annulé libère son créneau (verrou anti double réservation)
+    registerSlotRelease(strapi);
   },
 
   /**
@@ -21,5 +24,9 @@ module.exports = {
    * This gives you an opportunity to set up your data model,
    * run jobs, or perform some special logic.
    */
-  bootstrap,
+  async bootstrap({ strapi }) {
+    await seedBootstrap();
+    // Index unique des créneaux : refuse en base deux réservations simultanées du même créneau
+    await ensureSlotIndex(strapi);
+  },
 };
