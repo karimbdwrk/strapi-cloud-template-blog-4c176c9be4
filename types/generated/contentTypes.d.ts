@@ -661,6 +661,8 @@ export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     name: Schema.Attribute.String;
     offices: Schema.Attribute.Relation<'manyToMany', 'api::office.office'>;
+    professionName: Schema.Attribute.String;
+    professionNameFeminine: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
     slug: Schema.Attribute.UID;
     updatedAt: Schema.Attribute.DateTime;
@@ -811,6 +813,8 @@ export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
       'manyToMany',
       'api::category.category'
     >;
+    charterAcceptedAt: Schema.Attribute.DateTime;
+    charterVersion: Schema.Attribute.String;
     city: Schema.Attribute.Relation<'manyToOne', 'api::city.city'>;
     consultationType: Schema.Attribute.Enumeration<
       ['physical', 'online', 'both']
@@ -876,6 +880,7 @@ export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
           'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
         }
       >;
+    validatedAt: Schema.Attribute.DateTime;
     wednesday: Schema.Attribute.Component<'app.workday', false>;
   };
 }
@@ -1864,6 +1869,8 @@ export interface PluginUsersPermissionsUser
     provider: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
     ratings: Schema.Attribute.Relation<'oneToMany', 'api::rating.rating'>;
+    resetPasswordRequestedAt: Schema.Attribute.DateTime &
+      Schema.Attribute.Private;
     resetPasswordToken: Schema.Attribute.String & Schema.Attribute.Private;
     role: Schema.Attribute.Relation<
       'manyToOne',

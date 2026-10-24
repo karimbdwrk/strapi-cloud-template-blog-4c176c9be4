@@ -51,9 +51,18 @@ const escapeHtml = (value) =>
 
 const frontUrl = () => (process.env.FRONT_URL || 'http://localhost:3010').replace(/\/$/, '');
 
-const renderEmail = ({ type, title, body, link }) => {
+/**
+ * Gabarit des emails Meyana.
+ * Notifications : { type, title, body, link }.
+ * Emails de compte : { title, paragraphs: [...], link, cta, footer } (bouton et pied de page sur mesure).
+ */
+const renderEmail = ({ type, title, body, paragraphs, link, cta: ctaText, footer }) => {
 	const url = link ? `${frontUrl()}${link}` : `${frontUrl()}/dashboard`;
-	const cta = ctaLabel(type);
+	const cta = ctaText || ctaLabel(type || '');
+	const lines = paragraphs || (body ? [body] : []);
+	const footerHtml = footer
+		? escapeHtml(footer)
+		: `Vous recevez cet email car vous avez un compte Meyana. Retrouvez toutes vos notifications dans <a href="${escapeHtml(`${frontUrl()}/notifications`)}" style="color:#4b5a43">votre espace</a>.`;
 	const html = `<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(title)}</title></head>
 <body style="margin:0;background:#fbf7f4;font-family:Arial,Helvetica,sans-serif;color:#1e352f">
@@ -62,15 +71,20 @@ const renderEmail = ({ type, title, body, link }) => {
 <tr><td style="padding:0 4px 16px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#4b5a43;font-weight:bold">Meyana</td></tr>
 <tr><td style="background:#ffffff;border:1px solid #ece3db;border-radius:20px;padding:32px">
 <h1 style="margin:0 0 12px;font-family:Georgia,'Times New Roman',serif;font-weight:normal;font-size:24px;line-height:1.25;color:#1e352f">${escapeHtml(title)}</h1>
-${body ? `<p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#4a4a4a">${escapeHtml(body)}</p>` : ''}
+${lines
+	.map(
+		(line, i) =>
+			`<p style="margin:0 0 ${i === lines.length - 1 ? 24 : 12}px;font-size:15px;line-height:1.6;color:#4a4a4a">${escapeHtml(line)}</p>`
+	)
+	.join('\n')}
 <a href="${escapeHtml(url)}" style="display:inline-block;background:#1e352f;color:#fbf7f4;text-decoration:none;font-size:14px;font-weight:bold;padding:12px 22px;border-radius:999px">${escapeHtml(cta)}</a>
 </td></tr>
 <tr><td style="padding:20px 4px 0;font-size:12px;line-height:1.6;color:#8a8a8a">
-Vous recevez cet email car vous avez un compte Meyana. Retrouvez toutes vos notifications dans <a href="${escapeHtml(`${frontUrl()}/notifications`)}" style="color:#4b5a43">votre espace</a>.<br>
+${footerHtml}<br>
 Meyana ne remplace pas un avis médical d’urgence : en cas d’urgence, composez le 15 ou le 112.
 </td></tr>
 </table></td></tr></table></body></html>`;
-	const text = `${title}\n\n${body ? `${body}\n\n` : ''}${cta} : ${url}\n\n—\nMeyana. En cas d'urgence, composez le 15 ou le 112.`;
+	const text = `${title}\n\n${lines.map((line) => `${line}\n\n`).join('')}${cta} : ${url}${footer ? `\n\n${footer}` : ''}\n\n—\nMeyana. En cas d'urgence, composez le 15 ou le 112.`;
 	return { html, text };
 };
 
@@ -98,4 +112,4 @@ const sendEmail = async ({ to, subject, html, text }) => {
 	return true;
 };
 
-module.exports = { shouldEmail, renderEmail, sendEmail };
+module.exports = { shouldEmail, renderEmail, sendEmail, frontUrl };

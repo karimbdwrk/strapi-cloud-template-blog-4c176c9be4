@@ -37,6 +37,11 @@
       "private": true,
       "searchable": false
     },
+    "resetPasswordRequestedAt": {
+      "type": "datetime",
+      "private": true,
+      "configurable": false
+    },
     "resetPasswordToken": {
       "type": "string",
       "configurable": false,
