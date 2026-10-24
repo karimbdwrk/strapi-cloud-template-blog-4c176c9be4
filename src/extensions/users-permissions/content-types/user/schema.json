@@ -37,6 +37,11 @@
       "private": true,
       "searchable": false
     },
+    "emailPreferences": {
+      "type": "json",
+      "private": true,
+      "configurable": false
+    },
     "resetPasswordRequestedAt": {
       "type": "datetime",
       "private": true,

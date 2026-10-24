@@ -9,8 +9,10 @@
  */
 
 const { createCoreController } = require('@strapi/strapi').factories;
+const { EMAIL_CATEGORIES, normalizeEmailPreferences } = require('../../../notifications/email');
 
 const UID = 'api::notification.notification';
+const USER_UID = 'plugin::users-permissions.user';
 const PUBLIC_FIELDS = ['type', 'title', 'body', 'link', 'readAt', 'createdAt'];
 const MAX_PAGE_SIZE = 50;
 
@@ -110,6 +112,28 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 			data: { readAt: new Date() },
 		});
 		return { data: { count } };
+	},
+
+	/** GET /notifications/email-preferences : { appointments: true, reviews: false, … } */
+	async emailPreferences(ctx) {
+		const user = ctx.state.user;
+		if (!user) return ctx.unauthorized();
+		const row = await strapi.db.query(USER_UID).findOne({ where: { id: user.id }, select: ['emailPreferences'] });
+		return { data: normalizeEmailPreferences(row?.emailPreferences) };
+	},
+
+	/** PUT /notifications/email-preferences  { data: { reviews: false } } : seules les catégories connues sont gardées */
+	async updateEmailPreferences(ctx) {
+		const user = ctx.state.user;
+		if (!user) return ctx.unauthorized();
+		const input = ctx.request.body?.data || {};
+		const row = await strapi.db.query(USER_UID).findOne({ where: { id: user.id }, select: ['emailPreferences'] });
+		const next = normalizeEmailPreferences(row?.emailPreferences);
+		for (const key of Object.keys(EMAIL_CATEGORIES)) {
+			if (typeof input[key] === 'boolean') next[key] = input[key];
+		}
+		await strapi.db.query(USER_UID).update({ where: { id: user.id }, data: { emailPreferences: next } });
+		return { data: next };
 	},
 
 	// Création et suppression réservées au serveur

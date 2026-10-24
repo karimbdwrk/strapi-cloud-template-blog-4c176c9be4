@@ -10,7 +10,7 @@
 const { createCoreService } = require('@strapi/strapi').factories;
 
 const UID = 'api::notification.notification';
-const { shouldEmail, renderEmail, sendEmail } = require('../../../notifications/email');
+const { shouldEmail, renderEmail, sendEmail, categoryOf } = require('../../../notifications/email');
 
 const clip = (value, max) => (typeof value === 'string' && value.length > max ? `${value.slice(0, max - 1)}…` : value);
 
@@ -68,9 +68,12 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
 		try {
 			const user = await strapi.db.query('plugin::users-permissions.user').findOne({
 				where: { id: recipientId },
-				select: ['email', 'blocked'],
+				select: ['email', 'blocked', 'emailPreferences'],
 			});
 			if (!user?.email || user.blocked) return;
+			// Catégorie désactivée dans les réglages : notification dans le site uniquement
+			const category = categoryOf(notification.type);
+			if (category && user.emailPreferences?.[category] === false) return;
 
 			const message = custom || { subject: notification.title, ...renderEmail(notification) };
 			const sent = await sendEmail({ to: user.email, ...message });

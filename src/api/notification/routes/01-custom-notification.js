@@ -18,5 +18,15 @@ module.exports = {
 			path: '/notifications/read-all',
 			handler: 'notification.readAll',
 		},
+		{
+			method: 'GET',
+			path: '/notifications/email-preferences',
+			handler: 'notification.emailPreferences',
+		},
+		{
+			method: 'PUT',
+			path: '/notifications/email-preferences',
+			handler: 'notification.updateEmailPreferences',
+		},
 	],
 };

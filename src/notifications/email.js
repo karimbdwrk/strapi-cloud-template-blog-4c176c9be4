@@ -32,6 +32,33 @@ const EMAIL_TYPES = new Set([
 	'admin_support',
 ]);
 
+/**
+ * Catégories réglables par l'utilisateur (page Réglages du site).
+ * Absence de préférence = email envoyé. Les emails de sécurité (mot de passe)
+ * ne passent pas par ici : ils sont toujours envoyés.
+ */
+const EMAIL_CATEGORIES = {
+	appointments: [
+		'appointment_booked',
+		'appointment_added_by_doctor',
+		'appointment_cancelled',
+		'appointment_reminder',
+		'visio_link_added',
+		'document_added',
+	],
+	reviews: ['review_request', 'review_received'],
+	support: ['support_reply', 'support_resolved'],
+	account: ['account_validated', 'account_suspended', 'account_reactivated', 'recommended_granted', 'recommended_removed'],
+	admin: ['admin_doctor_pending', 'admin_report', 'admin_support'],
+};
+
+const categoryOf = (type) =>
+	Object.keys(EMAIL_CATEGORIES).find((key) => EMAIL_CATEGORIES[key].includes(type)) || null;
+
+/** Préférences complètes { appointments: true, … } à partir de la valeur stockée (null = tout activé) */
+const normalizeEmailPreferences = (stored) =>
+	Object.fromEntries(Object.keys(EMAIL_CATEGORIES).map((key) => [key, stored?.[key] !== false]));
+
 const ctaLabel = (type) => {
 	if (type === 'review_request') return 'Donner mon avis';
 	if (type.startsWith('appointment') || type === 'visio_link_added' || type === 'document_added') return 'Voir le rendez-vous';
@@ -79,7 +106,7 @@ ${rows
 		: '';
 	const footerHtml = footer
 		? escapeHtml(footer)
-		: `Vous recevez cet email car vous avez un compte Meyana. Retrouvez toutes vos notifications dans <a href="${escapeHtml(`${frontUrl()}/notifications`)}" style="color:#4b5a43">votre espace</a>.`;
+		: `Vous recevez cet email car vous avez un compte Meyana. Retrouvez toutes vos notifications dans <a href="${escapeHtml(`${frontUrl()}/notifications`)}" style="color:#4b5a43">votre espace</a>, ou <a href="${escapeHtml(`${frontUrl()}/dashboard/reglages`)}" style="color:#4b5a43">choisissez les emails que vous recevez</a>.`;
 	const html = `<!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(title)}</title></head>
 <body style="margin:0;background:#fbf7f4;font-family:Arial,Helvetica,sans-serif;color:#1e352f">
@@ -143,4 +170,12 @@ const sendEmail = async ({ to, subject, html, text, attachments }) => {
 	return true;
 };
 
-module.exports = { shouldEmail, renderEmail, sendEmail, frontUrl };
+module.exports = {
+	shouldEmail,
+	renderEmail,
+	sendEmail,
+	frontUrl,
+	EMAIL_CATEGORIES,
+	categoryOf,
+	normalizeEmailPreferences,
+};
