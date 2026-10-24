@@ -33,7 +33,7 @@ const loadAppointment = (strapi, documentId) =>
 			patient: { fields: ['id', 'firstname', 'lastname'] },
 			doctor: {
 				fields: ['firstname', 'lastname', 'gender'],
-				populate: { users_permissions_user: { fields: ['id'] }, priceRange: true },
+				populate: { users_permissions_user: { fields: ['id'] }, priceRange: true, reason: true },
 			},
 			category: { fields: ['name', 'professionName', 'professionNameFeminine'] },
 			appointmentAddress: true,

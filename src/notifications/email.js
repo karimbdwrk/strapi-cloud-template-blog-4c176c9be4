@@ -88,7 +88,7 @@ const renderEmail = ({ type, title, body, paragraphs, details, notes, link, cta:
 	const url = link ? `${frontUrl()}${link}` : `${frontUrl()}/dashboard`;
 	const cta = ctaText || ctaLabel(type || '');
 	const lines = paragraphs || (body ? [body] : []);
-	const rows = (details || []).filter(([, value]) => value);
+	const rows = (details || []).filter((row) => row && row[1]);
 	const detailsHtml = rows.length
 		? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#fbf7f4;border:1px solid #ece3db;border-radius:14px">
 ${rows

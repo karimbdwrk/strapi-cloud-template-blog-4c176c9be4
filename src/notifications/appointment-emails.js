@@ -48,10 +48,26 @@ const addressOf = (a) => {
 	return [ad.line, [ad.postcode, ad.city].filter(Boolean).join(' ')].filter(Boolean).join('\n');
 };
 
-const priceOf = (a) => {
+// « 65 € », « 45,50 € »
+const euros = (value) => {
+	const n = Number(value);
+	const digits = Number.isInteger(n) ? 0 : 2;
+	return `${n.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits })} €`;
+};
+
+/**
+ * Tarif de la consultation : prix du motif choisi à la réservation (le rendez-vous
+ * enregistre le titre du motif). À défaut de prix sur ce motif, fourchette du praticien.
+ * → [libellé, valeur] ou null
+ */
+const priceRowOf = (a) => {
+	const reason = (a.doctor?.reason || []).find((r) => r.title === a.reason);
+	if (reason?.price != null && reason.price !== '') return ['Tarif', euros(reason.price)];
+
 	const { minimum, maximum } = a.doctor?.priceRange || {};
-	if (minimum && maximum && Number(minimum) !== Number(maximum)) return `Entre ${minimum} € et ${maximum} €`;
-	if (minimum || maximum) return `${minimum || maximum} €`;
+	if (minimum && maximum && Number(minimum) !== Number(maximum))
+		return ['Tarif indicatif', `Entre ${euros(minimum)} et ${euros(maximum)}`];
+	if (minimum || maximum) return ['Tarif indicatif', euros(minimum || maximum)];
 	return null;
 };
 
@@ -130,7 +146,7 @@ const patientBookedEmail = (a) => {
 			['Consultation', a.isOnline ? 'En visio' : 'Au cabinet'],
 			['Adresse', a.isOnline ? null : addressOf(a)],
 			['Pour', relative],
-			['Tarif indicatif', priceOf(a)],
+			priceRowOf(a),
 		],
 		link: `/appointment/${a.UUID}`,
 		cta: 'Voir mon rendez-vous',
