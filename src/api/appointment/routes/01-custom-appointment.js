@@ -13,5 +13,12 @@ module.exports = {
 			path: '/appointments/to-rate-count',
 			handler: 'appointment.toRateCount',
 		},
+		{
+			// Créneaux pris d'un praticien (horaires uniquement) : public, pour les disponibilités
+			method: 'GET',
+			path: '/appointments/busy',
+			handler: 'appointment.busy',
+			config: { auth: false },
+		},
 	],
 };

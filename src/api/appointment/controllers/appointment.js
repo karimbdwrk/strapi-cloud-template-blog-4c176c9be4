@@ -1,15 +1,42 @@
 'use strict';
 
 /**
- * appointment controller
+ * appointment controller (rendez-vous : contient des données de santé)
+ *
+ * Lecture
+ * - GET /appointments/busy : créneaux pris d'un praticien (horaires seulement), public,
+ *   pour le calcul des disponibilités. Aucune donnée de patient.
+ * - find / findOne : uniquement les rendez-vous dont on est le patient ou le praticien.
+ *   Le patient (relation vers User) est ajouté côté serveur, avec son dossier.
+ * Écriture
+ * - create : contrôles serveur (praticien en ligne, créneau dans ses horaires et libre,
+ *   dossier patient complet) ; le patient est toujours le compte connecté.
+ * - update : patient ou praticien du rendez-vous, chacun limité à ses champs.
+ * - delete : SuperAdmin uniquement.
+ * Le SuperAdmin garde un accès complet.
  */
 
 const { createCoreController } = require('@strapi/strapi').factories;
 
 const UID = 'api::appointment.appointment';
+const DOCTOR_UID = 'api::doctor.doctor';
+const RECORD_UID = 'api::user-record.user-record';
 const ADMIN_ROLE = 'SuperAdmin';
+const TIME_ZONE = 'Europe/Paris';
+const DEFAULT_DURATION = 30;
+const WEEK_DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+const DOCTOR_DOCS = ['document1', 'document2', 'document3', 'document4', 'document5', 'document6'];
+const PATIENT_DOCS = ['docFromPatientA', 'docFromPatientB', 'docFromPatientC', 'docFromPatientD', 'docFromPatientE', 'docFromPatientF'];
+
+// Champs modifiables par chacun sur un rendez-vous existant
+const PATIENT_FIELDS = ['note', 'isCancelled', ...PATIENT_DOCS];
+const DOCTOR_FIELDS = ['doctorNote', 'visioLink', 'isOver', 'isCancelled', 'isPaid', ...DOCTOR_DOCS];
 
 const isAdmin = (user) => user?.role?.name === ADMIN_ROLE;
+
+// « Non annulé » : false ou vide. Un simple $ne: true exclurait aussi les valeurs NULL en SQL.
+const NOT_CANCELLED = { $or: [{ isCancelled: false }, { isCancelled: { $null: true } }] };
 
 // populate=* ou toute demande qui inclut la relation patient (patient, patient.user_record…)
 const wantsPatient = (populate) =>
@@ -31,10 +58,31 @@ const PATIENT_POPULATE = {
 	},
 };
 
+/** Rendez-vous accessibles : ceux dont on est le patient ou le praticien. */
+const ownedBy = (user) => ({
+	$or: [{ patient: { id: user.id } }, { doctor: { users_permissions_user: { id: user.id } } }],
+});
+
+/** Rôle du compte sur un rendez-vous : 'patient' | 'doctor' | null */
+const roleOn = async (strapi, documentId, user) => {
+	const a = await strapi.documents(UID).findOne({
+		documentId,
+		fields: ['id'],
+		populate: {
+			patient: { fields: ['id'] },
+			doctor: { fields: ['id'], populate: { users_permissions_user: { fields: ['id'] } } },
+		},
+	});
+	if (!a) return null;
+	if (a.doctor?.users_permissions_user?.id === user.id) return 'doctor';
+	if (a.patient?.id === user.id) return 'patient';
+	return null;
+};
+
 /** Ajoute le patient aux rendez-vous dont le demandeur est le praticien ou le patient. */
 const attachPatients = async (strapi, appointments, user) => {
-	const list = Array.isArray(appointments) ? appointments : [appointments];
-	const ids = list.map((a) => a?.documentId).filter(Boolean);
+	const list = (Array.isArray(appointments) ? appointments : [appointments]).filter(Boolean);
+	const ids = list.map((a) => a.documentId).filter(Boolean);
 	if (!ids.length) return;
 
 	const rows = await strapi.documents(UID).findMany({
@@ -58,53 +106,169 @@ const attachPatients = async (strapi, appointments, user) => {
 	}
 };
 
+/* ---------- Contrôles de réservation ---------- */
+
+/** Heure locale (Paris) d'une date : { day: 'monday', minutes: 570, date: '2026-10-28' } */
+const localParts = (date) => {
+	const parts = Object.fromEntries(
+		new Intl.DateTimeFormat('en-GB', {
+			timeZone: TIME_ZONE,
+			weekday: 'long',
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit',
+			hourCycle: 'h23',
+		})
+			.formatToParts(date)
+			.map((p) => [p.type, p.value])
+	);
+	return {
+		day: parts.weekday.toLowerCase(),
+		minutes: Number(parts.hour) * 60 + Number(parts.minute),
+		date: `${parts.year}-${parts.month}-${parts.day}`,
+	};
+};
+
+/** « 09:30:00.000 » → 570 */
+const toMinutes = (time) => {
+	if (!time || typeof time !== 'string') return null;
+	const [h, m] = time.split(':').map(Number);
+	return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+};
+
+/** Praticien visé par la réservation (id numérique, documentId ou { connect }) */
+const findDoctor = (strapi, value) => {
+	const ref = value?.connect?.[0] ?? value?.set?.[0] ?? value;
+	const key = ref?.documentId ?? ref?.id ?? ref;
+	if (key === undefined || key === null || key === '') return null;
+	const where = typeof key === 'number' || /^\d+$/.test(String(key)) ? { id: Number(key) } : { documentId: String(key) };
+	return strapi.db.query(DOCTOR_UID).findOne({
+		where,
+		select: ['id', 'documentId', 'isActive'],
+		populate: {
+			users_permissions_user: { select: ['id'] },
+			holidays: true,
+			...Object.fromEntries(WEEK_DAYS.map((d) => [d, true])),
+		},
+	});
+};
+
+/** Message d'erreur si le créneau est hors des horaires du praticien, sinon null. */
+const outsideSchedule = (doctor, start, duration) => {
+	const local = localParts(start);
+	const day = doctor[local.day];
+	if (!day || day.isOff) return 'Le praticien ne consulte pas ce jour-là.';
+
+	const open = toMinutes(day.startTime);
+	const close = toMinutes(day.endTime);
+	if (open === null || close === null) return 'Le praticien n’a pas d’horaires ce jour-là.';
+	if (local.minutes < open || local.minutes >= close) return 'Ce créneau est en dehors des horaires du praticien.';
+
+	const pauseStart = toMinutes(day.startBreak);
+	const pauseEnd = toMinutes(day.endBreak);
+	if (pauseStart !== null && pauseEnd !== null && local.minutes < pauseEnd && local.minutes + duration > pauseStart) {
+		return 'Ce créneau tombe pendant la pause du praticien.';
+	}
+
+	const onHoliday = (doctor.holidays || []).some((h) => h.start && h.end && local.date >= h.start && local.date <= h.end);
+	if (onHoliday) return 'Le praticien est absent à cette date.';
+	return null;
+};
+
+/** Vrai si un rendez-vous non annulé du praticien chevauche ce créneau. */
+const slotTaken = async (strapi, doctorId, start, duration) => {
+	const from = new Date(start.getTime() - 12 * 3600000);
+	const to = new Date(start.getTime() + 12 * 3600000);
+	const existing = await strapi.db.query(UID).findMany({
+		where: {
+			$and: [{ doctor: { id: doctorId } }, NOT_CANCELLED, { datetime: { $gte: from, $lte: to } }],
+		},
+		select: ['datetime', 'duration'],
+	});
+	const end = start.getTime() + duration * 60000;
+	return existing.some((a) => {
+		const s = new Date(a.datetime).getTime();
+		const e = s + (Number(a.duration) || DEFAULT_DURATION) * 60000;
+		return s < end && start.getTime() < e;
+	});
+};
+
 module.exports = createCoreController(UID, ({ strapi }) => ({
 	/**
-	 * GET /appointments
-	 *
-	 * - Un filtre sur le patient (« mes rendez-vous ») est remplacé côté serveur
-	 *   par le compte connecté : Strapi refuserait (400) un filtre sur la relation
-	 *   vers le modèle User, et un utilisateur ne liste pas ceux d'un autre patient.
-	 * - Quand le patient est demandé (populate), Strapi le retire de la réponse
-	 *   (le rôle n'a pas accès au modèle User) : il est ajouté ici, avec son dossier,
-	 *   uniquement pour le praticien du rendez-vous et pour le patient lui-même.
-	 * Les autres lectures (agenda d'un praticien, créneaux pris) sont inchangées.
+	 * GET /appointments/busy?doctor=<id|documentId>&date=AAAA-MM-JJ (date facultative)
+	 * Créneaux pris d'un praticien, sans aucune donnée de patient. Route publique.
 	 */
+	async busy(ctx) {
+		const doctorRef = ctx.query?.doctor;
+		if (!doctorRef) return ctx.badRequest('Paramètre « doctor » manquant');
+		const doctorWhere = /^\d+$/.test(String(doctorRef)) ? { id: Number(doctorRef) } : { documentId: String(doctorRef) };
+
+		const date = typeof ctx.query?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ctx.query.date) ? ctx.query.date : null;
+		const where = {
+			$and: [
+				{ doctor: doctorWhere },
+				NOT_CANCELLED,
+				date ? { date } : { datetime: { $gte: new Date(Date.now() - 24 * 3600000) } },
+			],
+		};
+		const rows = await strapi.db.query(UID).findMany({
+			where,
+			select: ['date', 'datetime', 'duration'],
+			orderBy: { datetime: 'asc' },
+			limit: 2000,
+		});
+		return { data: rows.map(({ date: d, datetime, duration }) => ({ date: d, datetime, duration })) };
+	},
+
 	async find(ctx) {
 		const user = ctx.state.user;
 		if (isAdmin(user)) return super.find(ctx);
+		if (!user) return ctx.unauthorized();
 
+		// Filtre « mes rendez-vous » (patient) : imposé côté serveur, Strapi refuserait le filtre sur User
 		const filters = ctx.query?.filters;
 		const forcePatient = Boolean(filters && typeof filters === 'object' && 'patient' in filters);
-		if (forcePatient && !user) return ctx.unauthorized();
-		const withPatient = Boolean(user) && wantsPatient(ctx.query?.populate);
-		if (!forcePatient && !withPatient) return super.find(ctx);
-
 		if (forcePatient) {
 			const { patient, ...otherFilters } = filters;
 			ctx.query = { ...ctx.query, filters: otherFilters };
 		}
+		const withPatient = wantsPatient(ctx.query?.populate);
+
 		await this.validateQuery(ctx);
 		const sanitizedQuery = await this.sanitizeQuery(ctx);
-
 		const { results, pagination } = await strapi.service(UID).find({
 			...sanitizedQuery,
-			...(forcePatient && {
-				filters: { $and: [sanitizedQuery.filters || {}, { patient: { id: user.id } }] },
-			}),
+			filters: {
+				$and: [
+					sanitizedQuery.filters || {},
+					forcePatient ? { patient: { id: user.id } } : ownedBy(user),
+				],
+			},
 		});
 		const sanitizedResults = await this.sanitizeOutput(results, ctx);
 		if (withPatient) await attachPatients(strapi, sanitizedResults, user);
 		return this.transformResponse(sanitizedResults, { pagination });
 	},
 
+	async findOne(ctx) {
+		const user = ctx.state.user;
+		if (isAdmin(user)) return super.findOne(ctx);
+		if (!user) return ctx.unauthorized();
+		if (!(await roleOn(strapi, ctx.params.id, user))) return ctx.notFound();
+
+		const withPatient = wantsPatient(ctx.query?.populate);
+		const response = await super.findOne(ctx);
+		if (withPatient && response?.data) await attachPatients(strapi, response.data, user);
+		return response;
+	},
+
 	/**
 	 * POST /appointments
-	 * Le patient est toujours le compte connecté, rattaché par le serveur :
-	 * le navigateur ne choisit pas le patient, et Strapi refuserait (400)
-	 * une relation vers le modèle User que le rôle n'a pas le droit de lire.
-	 * Le rattachement se fait dans la création même, car les notifications
-	 * (praticien et patient) sont envoyées juste après à partir du patient.
+	 * - patient : praticien en ligne, créneau dans ses horaires, libre et à venir, dossier complet ;
+	 * - praticien dans son propre agenda : créneau libre (horaires libres : il peut ajouter un rendez-vous exceptionnel).
+	 * Le patient est rattaché dans la création même : les notifications partent juste après et le lisent.
 	 */
 	async create(ctx) {
 		const user = ctx.state.user;
@@ -115,8 +279,37 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		const data = { ...(body.data || {}) };
 		const forConnectedPatient = 'patient' in data;
 		delete data.patient;
-		ctx.request.body = { ...body, data };
 
+		const doctor = await findDoctor(strapi, data.doctor);
+		if (!doctor) return ctx.badRequest('Praticien introuvable.');
+		const inOwnAgenda = doctor.users_permissions_user?.id === user.id;
+
+		const start = new Date(data.datetime);
+		if (isNaN(start.getTime())) return ctx.badRequest('Date du rendez-vous invalide.');
+		const duration = Number(data.duration) > 0 ? Number(data.duration) : DEFAULT_DURATION;
+
+		if (inOwnAgenda) {
+			data.isFromDoctor = true;
+		} else {
+			data.isFromDoctor = false;
+			if (!doctor.isActive) return ctx.badRequest('Ce praticien ne prend pas de rendez-vous pour le moment.');
+			if (start.getTime() < Date.now()) return ctx.badRequest('Ce créneau est déjà passé.');
+			const record = await strapi.db.query(RECORD_UID).findOne({
+				where: { users_permissions_user: { id: user.id }, isActive: true },
+				select: ['id'],
+			});
+			if (!record) return ctx.forbidden('Complétez votre profil avant de prendre rendez-vous.');
+			const scheduleError = outsideSchedule(doctor, start, duration);
+			if (scheduleError) return ctx.badRequest(scheduleError);
+		}
+
+		if (await slotTaken(strapi, doctor.id, start, duration)) {
+			return ctx.conflict
+				? ctx.conflict('Ce créneau vient d’être réservé. Choisissez-en un autre.')
+				: ctx.badRequest('Ce créneau vient d’être réservé. Choisissez-en un autre.');
+		}
+
+		ctx.request.body = { ...body, data };
 		await this.validateQuery(ctx);
 		const sanitizedQuery = await this.sanitizeQuery(ctx);
 		await this.validateInput(data, ctx);
@@ -124,18 +317,41 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 
 		const entity = await strapi.service(UID).create({
 			...sanitizedQuery,
-			data: { ...sanitizedInput, ...(forConnectedPatient && { patient: user.id }) },
+			data: { ...sanitizedInput, ...(forConnectedPatient && !inOwnAgenda && { patient: user.id }) },
 		});
 		const sanitizedEntity = await this.sanitizeOutput(entity, ctx);
 		ctx.status = 201;
 		return this.transformResponse(sanitizedEntity);
 	},
 
+	/** PUT /appointments/:id : patient ou praticien du rendez-vous, chacun limité à ses champs. */
+	async update(ctx) {
+		const user = ctx.state.user;
+		if (isAdmin(user)) return super.update(ctx);
+		if (!user) return ctx.unauthorized();
+
+		const role = await roleOn(strapi, ctx.params.id, user);
+		if (!role) return ctx.forbidden('Vous ne pouvez modifier que vos propres rendez-vous.');
+
+		const allowed = role === 'doctor' ? DOCTOR_FIELDS : PATIENT_FIELDS;
+		const body = ctx.request.body || {};
+		const data = Object.fromEntries(Object.entries(body.data || {}).filter(([key]) => allowed.includes(key)));
+		if (!Object.keys(data).length) return ctx.badRequest('Aucune modification autorisée dans cette demande.');
+		// L'auteur de l'annulation est fixé par le serveur (il détermine qui est prévenu)
+		if (data.isCancelled === true) data.isCancelledByPatient = role === 'patient';
+
+		ctx.request.body = { ...body, data };
+		return super.update(ctx);
+	},
+
+	async delete(ctx) {
+		if (!isAdmin(ctx.state.user)) return ctx.forbidden();
+		return super.delete(ctx);
+	},
+
 	/**
 	 * GET /appointments/to-rate-count
 	 * Nombre de rendez-vous terminés que le patient connecté n'a pas encore évalués.
-	 * Le filtre sur le patient est fait côté serveur : aucun droit de lecture
-	 * sur les comptes utilisateurs n'est nécessaire.
 	 */
 	async toRateCount(ctx) {
 		const user = ctx.state.user;
@@ -143,10 +359,7 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 
 		const count = await strapi.documents(UID).count({
 			filters: {
-				patient: { id: user.id },
-				isOver: true,
-				isCancelled: { $ne: true },
-				rating: { id: { $null: true } },
+				$and: [{ patient: { id: user.id } }, { isOver: true }, NOT_CANCELLED, { rating: { id: { $null: true } } }],
 			},
 		});
 		return { data: { count } };
