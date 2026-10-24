@@ -88,6 +88,29 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
 		}
 	},
 
+	/**
+	 * Email seul, sans notification dans le site (ex. confirmation d'une action faite
+	 * par l'utilisateur lui-même). Respecte les réglages : catégorie désactivée = pas d'email.
+	 * @param {object} params
+	 * @param {number} params.recipient  id du user
+	 * @param {string} params.category   catégorie de réglage (ex. « appointments »)
+	 * @param {object} params.email      { subject, html, text, attachments }
+	 */
+	async emailUser({ recipient, category, email }) {
+		if (!recipient || !email) return;
+		try {
+			const user = await strapi.db.query('plugin::users-permissions.user').findOne({
+				where: { id: recipient },
+				select: ['email', 'blocked', 'emailPreferences'],
+			});
+			if (!user?.email || user.blocked) return;
+			if (category && user.emailPreferences?.[category] === false) return;
+			await sendEmail({ to: user.email, ...email });
+		} catch (error) {
+			strapi.log.error(`[notification] Email direct non envoyé (${category}) : ${error.message}`);
+		}
+	},
+
 	/** Notifie tous les comptes ayant le rôle SuperAdmin. */
 	async notifyAdmins(params) {
 		const admins = await strapi.db.query('plugin::users-permissions.user').findMany({

@@ -20,7 +20,12 @@
  */
 
 const { fullName, formatWhen, today, notifier } = require('./helpers');
-const { patientBookedEmail, doctorBookedEmail } = require('./appointment-emails');
+const {
+	patientBookedEmail,
+	doctorBookedEmail,
+	patientCancelledOwnEmail,
+	doctorCancelledOwnEmail,
+} = require('./appointment-emails');
 
 const UID = 'api::appointment.appointment';
 const DOCTOR_DOCS = ['document1', 'document2', 'document3', 'document4', 'document5', 'document6'];
@@ -32,7 +37,7 @@ const loadAppointment = (strapi, documentId) =>
 		populate: {
 			patient: { fields: ['id', 'firstname', 'lastname'] },
 			doctor: {
-				fields: ['firstname', 'lastname', 'gender'],
+				fields: ['firstname', 'lastname', 'gender', 'UUID'],
 				populate: { users_permissions_user: { fields: ['id'] }, priceRange: true, reason: true },
 			},
 			category: { fields: ['name', 'professionName', 'professionNameFeminine'] },
@@ -117,6 +122,14 @@ const onUpdate = async (strapi, data, updated, previous) => {
 				link: c.link,
 				appointment: a.documentId,
 				dedupeKey: `appointment_cancelled:${a.documentId}`,
+			})
+		);
+		// Confirmation par email à celui qui a annulé (pas de notification : il vient de le faire)
+		jobs.push(
+			n.emailUser({
+				recipient: byPatient ? c.patientUserId : c.doctorUserId,
+				category: 'appointments',
+				email: byPatient ? patientCancelledOwnEmail(a) : doctorCancelledOwnEmail(a),
 			})
 		);
 	}

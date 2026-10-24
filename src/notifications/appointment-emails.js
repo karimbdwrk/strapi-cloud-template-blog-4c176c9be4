@@ -219,4 +219,67 @@ const doctorBookedEmail = (a) => {
 	};
 };
 
-module.exports = { patientBookedEmail, doctorBookedEmail };
+/** Confirmation au patient qui vient d'annuler son rendez-vous. */
+const patientCancelledOwnEmail = (a) => {
+	const doctor = fullName(a.doctor) || 'votre praticien';
+	const profession = professionOf(a);
+	const when = `${dateLong(a.datetime)} à ${timeOf(a.datetime)}`;
+
+	const { html, text } = renderEmail({
+		title: 'Votre rendez-vous est annulé',
+		paragraphs: [
+			a.patient?.firstname ? `Bonjour ${a.patient.firstname},` : 'Bonjour,',
+			`Votre rendez-vous avec ${doctor} du ${when} est bien annulé. Nous avons informé votre praticien.`,
+		],
+		details: [
+			['Date', capitalize(dateLong(a.datetime))],
+			['Heure', timeOf(a.datetime)],
+			['Praticien', [doctor, profession].filter(Boolean).join('\n')],
+			['Consultation', a.isOnline ? 'En visio' : 'Au cabinet'],
+			['Pour', relativeOf(a)],
+		],
+		link: a.doctor?.UUID ? `/doctor/${a.doctor.UUID}` : '/doctor',
+		cta: 'Reprendre rendez-vous',
+		notes: [
+			'Annulé par erreur ? Le créneau est peut-être encore libre : reprenez rendez-vous en quelques clics.',
+			'Si vous aviez ajouté ce rendez-vous à votre agenda, pensez à le retirer.',
+		],
+	});
+
+	return { subject: `Annulation confirmée · ${when}`, html, text };
+};
+
+/** Confirmation au praticien qui vient d'annuler un rendez-vous. */
+const doctorCancelledOwnEmail = (a) => {
+	const patient = fullName(a.patient) || 'votre patient';
+	const relative = relativeOf(a);
+	const when = `${dateLong(a.datetime)} à ${timeOf(a.datetime)}`;
+
+	const { html, text } = renderEmail({
+		title: 'Rendez-vous annulé',
+		paragraphs: [
+			a.doctor?.firstname ? `Bonjour ${a.doctor.firstname},` : 'Bonjour,',
+			`Votre rendez-vous avec ${relative ? relative.split(',')[0] : patient} du ${when} est bien annulé. Nous avons informé ${
+				relative ? `${patient}, qui avait réservé` : 'votre patient'
+			}.`,
+		],
+		details: [
+			['Date', capitalize(dateLong(a.datetime))],
+			['Heure', `${timeOf(a.datetime)} · ${durationLabel(a.duration)}`],
+			['Patient', relative || patient],
+			['Réservé par', relative ? patient : null],
+			['Consultation', a.isOnline ? 'En visio' : 'Au cabinet'],
+		],
+		link: '/dashboard',
+		cta: 'Voir mon agenda',
+		notes: [
+			'Le créneau est de nouveau proposé à la réservation.',
+			'Pour proposer une autre date à ce patient, ajoutez un rendez-vous depuis votre agenda.',
+			'Si vous aviez ajouté ce rendez-vous à votre agenda personnel, pensez à le retirer.',
+		],
+	});
+
+	return { subject: `Annulation confirmée · ${when}`, html, text };
+};
+
+module.exports = { patientBookedEmail, doctorBookedEmail, patientCancelledOwnEmail, doctorCancelledOwnEmail };
