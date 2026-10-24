@@ -15,7 +15,30 @@ const { createCoreController } = require('@strapi/strapi').factories;
 const UID = 'api::doctor.doctor';
 const USER_UID = 'plugin::users-permissions.user';
 const ADMIN_ROLE = 'SuperAdmin';
-const PROTECTED_FIELDS = ['isActive', 'isRecommended', 'validatedAt', 'users_permissions_user'];
+const PROTECTED_FIELDS = [
+	'isActive',
+	'isRecommended',
+	'validatedAt',
+	'charterAcceptedAt',
+	'charterVersion',
+	'users_permissions_user',
+];
+
+// Version de la charte éthique en vigueur (à changer à chaque modification du texte,
+// en même temps que CHARTER_VERSION côté site)
+const CHARTER_VERSION = '1.0';
+
+/**
+ * Signature de la charte : le navigateur envoie seulement « charterAccepted: true ».
+ * La date et la version sont fixées ici, côté serveur.
+ */
+const takeCharter = (data = {}) => {
+	const { charterAccepted, ...rest } = data;
+	return {
+		data: rest,
+		charter: charterAccepted === true ? { charterAcceptedAt: new Date(), charterVersion: CHARTER_VERSION } : null,
+	};
+};
 
 const isAdmin = (user) => user?.role?.name === ADMIN_ROLE;
 
@@ -38,15 +61,18 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		if (existing) return ctx.badRequest('Un profil praticien existe déjà pour ce compte.');
 
 		const body = ctx.request.body || {};
-		const data = stripProtected(body.data);
+		const { data, charter } = takeCharter(stripProtected(body.data));
 		ctx.request.body = { ...body, data };
 
 		const response = await super.create(ctx);
 		const documentId = response?.data?.documentId;
 
 		if (documentId) {
-			// Rattachement au compte connecté, puis compte marqué « praticien »
-			await strapi.documents(UID).update({ documentId, data: { users_permissions_user: user.id } });
+			// Rattachement au compte connecté (et signature de la charte), puis compte marqué « praticien »
+			await strapi.documents(UID).update({
+				documentId,
+				data: { users_permissions_user: user.id, ...(charter || {}) },
+			});
 			await strapi.db.query(USER_UID).update({
 				where: { id: user.id },
 				data: {
@@ -71,8 +97,9 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		if (!own) return ctx.forbidden('Vous ne pouvez modifier que votre propre profil.');
 
 		const body = ctx.request.body || {};
-		const data = stripProtected(body.data);
-		ctx.request.body = { ...body, data };
+		const { data, charter } = takeCharter(stripProtected(body.data));
+		// Signature de la charte par un praticien déjà inscrit (ou nouvelle version)
+		ctx.request.body = { ...body, data: { ...data, ...(charter || {}) } };
 		const response = await super.update(ctx);
 
 		// Nom et prénom du compte alignés sur ceux du profil praticien

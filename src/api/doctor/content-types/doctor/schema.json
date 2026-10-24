@@ -213,6 +213,12 @@
     "validatedAt": {
       "type": "datetime"
     },
+    "charterAcceptedAt": {
+      "type": "datetime"
+    },
+    "charterVersion": {
+      "type": "string"
+    },
     "isRecommended": {
       "type": "boolean",
       "default": false
