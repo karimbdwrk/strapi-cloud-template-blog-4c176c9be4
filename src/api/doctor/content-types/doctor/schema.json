@@ -213,6 +213,12 @@
     "validatedAt": {
       "type": "datetime"
     },
+    "rejectedAt": {
+      "type": "datetime"
+    },
+    "rejectionReason": {
+      "type": "text"
+    },
     "charterAcceptedAt": {
       "type": "datetime"
     },

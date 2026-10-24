@@ -20,7 +20,9 @@ const EMAIL_TYPES = new Set([
 	'document_added',
 	'review_request',
 	'review_received',
+	'account_pending',
 	'account_validated',
+	'account_rejected',
 	'account_suspended',
 	'account_reactivated',
 	'recommended_granted',
@@ -48,7 +50,15 @@ const EMAIL_CATEGORIES = {
 	],
 	reviews: ['review_request', 'review_received'],
 	support: ['support_reply', 'support_resolved'],
-	account: ['account_validated', 'account_suspended', 'account_reactivated', 'recommended_granted', 'recommended_removed'],
+	account: [
+		'account_pending',
+		'account_validated',
+		'account_rejected',
+		'account_suspended',
+		'account_reactivated',
+		'recommended_granted',
+		'recommended_removed',
+	],
 	admin: ['admin_doctor_pending', 'admin_report', 'admin_support'],
 };
 

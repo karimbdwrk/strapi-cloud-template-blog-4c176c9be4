@@ -11,6 +11,7 @@
  */
 
 const { createCoreController } = require('@strapi/strapi').factories;
+const { patientWelcomeEmail } = require('../../../notifications/account-emails');
 
 const UID = 'api::user-record.user-record';
 const USER_UID = 'plugin::users-permissions.user';
@@ -51,6 +52,11 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 					...(data.firstname && { firstname: data.firstname }),
 					...(data.lastname && { lastname: data.lastname }),
 				},
+			});
+			// Email de bienvenue (toujours envoyé : ce n'est pas une notification réglable)
+			await strapi.service('api::notification.notification').emailUser({
+				recipient: user.id,
+				email: patientWelcomeEmail({ firstname: data.firstname || user.firstname }),
 			});
 		}
 		return response;

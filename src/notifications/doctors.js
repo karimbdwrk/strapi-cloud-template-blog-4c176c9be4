@@ -6,10 +6,14 @@
  *   - isActive true  → false   → praticien : account_suspended
  *   - isRecommended → true     → praticien : recommended_granted
  *   - isRecommended → false    → praticien : recommended_removed (sauf si suspension simultanée)
- *   - profil complété, non validé → admins : admin_doctor_pending (une fois)
+ *   - rejectedAt renseigné (admin)  → praticien : account_rejected, avec le motif
+ *   - profil complété, non validé, non refusé → praticien : account_pending
+ *                                              + admins : admin_doctor_pending
+ *     (une fois, puis à nouveau après chaque correction d'un profil refusé)
  */
 
 const { fullName, notifier } = require('./helpers');
+const { doctorPendingEmail, doctorRejectedEmail, doctorValidatedEmail } = require('./account-emails');
 
 const UID = 'api::doctor.doctor';
 
@@ -31,7 +35,7 @@ module.exports = {
 		if (context.action !== 'update' || !context.params?.documentId) return null;
 		return strapi.documents(UID).findOne({
 			documentId: context.params.documentId,
-			fields: ['isActive', 'isRecommended'],
+			fields: ['isActive', 'isRecommended', 'rejectedAt'],
 		});
 	},
 
@@ -42,7 +46,17 @@ module.exports = {
 
 		const doctor = await strapi.documents(UID).findOne({
 			documentId: result.documentId,
-			fields: ['firstname', 'lastname', 'description', 'isActive', 'isRecommended', 'UUID'],
+			fields: [
+				'firstname',
+				'lastname',
+				'description',
+				'isActive',
+				'isRecommended',
+				'UUID',
+				'rejectedAt',
+				'rejectionReason',
+				'charterAcceptedAt',
+			],
 			populate: {
 				users_permissions_user: { fields: ['id'] },
 				categories: { fields: ['id'] },
@@ -79,6 +93,7 @@ module.exports = {
 							body: 'Bienvenue sur Meyana. Les patients peuvent maintenant prendre rendez-vous avec vous.',
 							link: '/dashboard',
 							dedupeKey: `account_validated:${doctor.documentId}`,
+							email: doctorValidatedEmail(doctor),
 					  })
 			);
 		}
@@ -120,15 +135,40 @@ module.exports = {
 			);
 		}
 
-		// Profil complété par le praticien et en attente de validation
-		if (!doctor.isActive && isComplete(doctor)) {
+		// Refus par l'équipe, avec le motif
+		if (data.rejectedAt && !previous?.rejectedAt) {
 			jobs.push(
+				n.notify({
+					recipient,
+					type: 'account_rejected',
+					title: 'Votre profil n’a pas pu être validé',
+					body: 'Consultez le motif, corrigez votre profil : il repartira en vérification.',
+					link: '/onboarding',
+					email: doctorRejectedEmail(doctor),
+				})
+			);
+		}
+
+		// Profil complété et en attente de validation : une fois, puis après chaque correction d'un refus
+		if (!doctor.isActive && !doctor.rejectedAt && isComplete(doctor)) {
+			const resubmitted = Boolean(previous?.rejectedAt);
+			const round = resubmitted ? `:${Date.now()}` : '';
+			jobs.push(
+				n.notify({
+					recipient,
+					type: 'account_pending',
+					title: resubmitted ? 'Profil renvoyé pour validation' : 'Profil envoyé pour validation',
+					body: 'Notre équipe l’examine. Nous vous écrivons dès que la vérification est terminée.',
+					link: '/onboarding',
+					dedupeKey: `account_pending:${doctor.documentId}${round}`,
+					email: doctorPendingEmail(doctor, { resubmitted }),
+				}),
 				n.notifyAdmins({
 					type: 'admin_doctor_pending',
-					title: 'Nouveau praticien à valider',
+					title: resubmitted ? 'Praticien à revalider (profil corrigé)' : 'Nouveau praticien à valider',
 					body: fullName(doctor),
 					link: `/admin/validation?id=${doctor.documentId}`,
-					dedupeKey: `admin_doctor_pending:${doctor.documentId}`,
+					dedupeKey: `admin_doctor_pending:${doctor.documentId}${round}`,
 				})
 			);
 		}

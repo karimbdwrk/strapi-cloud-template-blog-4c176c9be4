@@ -21,6 +21,8 @@ const PROTECTED_FIELDS = [
 	'validatedAt',
 	'charterAcceptedAt',
 	'charterVersion',
+	'rejectedAt',
+	'rejectionReason',
 	'users_permissions_user',
 ];
 
@@ -98,8 +100,14 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 
 		const body = ctx.request.body || {};
 		const { data, charter } = takeCharter(stripProtected(body.data));
+		// Profil refusé puis modifié par le praticien : il repart dans la file de validation
+		const wasRejected = await strapi.documents(UID).findFirst({
+			filters: { documentId: ctx.params.id, rejectedAt: { $notNull: true } },
+			fields: ['id'],
+		});
+		const resubmit = wasRejected ? { rejectedAt: null, rejectionReason: null } : {};
 		// Signature de la charte par un praticien déjà inscrit (ou nouvelle version)
-		ctx.request.body = { ...body, data: { ...data, ...(charter || {}) } };
+		ctx.request.body = { ...body, data: { ...data, ...(charter || {}), ...resubmit } };
 		const response = await super.update(ctx);
 
 		// Nom et prénom du compte alignés sur ceux du profil praticien
