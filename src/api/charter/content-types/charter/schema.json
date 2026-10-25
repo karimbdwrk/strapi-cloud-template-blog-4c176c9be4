@@ -1,0 +1,32 @@
+{
+  "kind": "singleType",
+  "collectionName": "charters",
+  "info": {
+    "singularName": "charter",
+    "pluralName": "charters",
+    "displayName": "Charte éthique",
+    "description": "Texte signé par chaque praticien. Changer la version à chaque modification du texte : les praticiens devront la signer à nouveau."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "version": {
+      "type": "string",
+      "required": true,
+      "default": "1.0"
+    },
+    "dateLabel": {
+      "type": "string"
+    },
+    "intro": {
+      "type": "text"
+    },
+    "articles": {
+      "type": "component",
+      "repeatable": true,
+      "component": "charter.article"
+    }
+  }
+}

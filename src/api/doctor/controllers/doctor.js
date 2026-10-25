@@ -11,6 +11,7 @@
  */
 
 const { createCoreController } = require('@strapi/strapi').factories;
+const { currentCharterVersion } = require('../../../charter');
 
 const UID = 'api::doctor.doctor';
 const USER_UID = 'plugin::users-permissions.user';
@@ -26,19 +27,18 @@ const PROTECTED_FIELDS = [
 	'users_permissions_user',
 ];
 
-// Version de la charte éthique en vigueur (à changer à chaque modification du texte,
-// en même temps que CHARTER_VERSION côté site)
-const CHARTER_VERSION = '1.0';
-
 /**
  * Signature de la charte : le navigateur envoie seulement « charterAccepted: true ».
- * La date et la version sont fixées ici, côté serveur.
+ * La date et la version (celle du single type « Charte éthique ») sont fixées ici, côté serveur.
  */
-const takeCharter = (data = {}) => {
+const takeCharter = async (strapi, data = {}) => {
 	const { charterAccepted, ...rest } = data;
 	return {
 		data: rest,
-		charter: charterAccepted === true ? { charterAcceptedAt: new Date(), charterVersion: CHARTER_VERSION } : null,
+		charter:
+			charterAccepted === true
+				? { charterAcceptedAt: new Date(), charterVersion: await currentCharterVersion(strapi) }
+				: null,
 	};
 };
 
@@ -63,7 +63,7 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		if (existing) return ctx.badRequest('Un profil praticien existe déjà pour ce compte.');
 
 		const body = ctx.request.body || {};
-		const { data, charter } = takeCharter(stripProtected(body.data));
+		const { data, charter } = await takeCharter(strapi, stripProtected(body.data));
 		ctx.request.body = { ...body, data };
 
 		const response = await super.create(ctx);
@@ -99,7 +99,7 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		if (!own) return ctx.forbidden('Vous ne pouvez modifier que votre propre profil.');
 
 		const body = ctx.request.body || {};
-		const { data, charter } = takeCharter(stripProtected(body.data));
+		const { data, charter } = await takeCharter(strapi, stripProtected(body.data));
 		// Profil refusé puis modifié par le praticien : il repart dans la file de validation
 		const wasRejected = await strapi.documents(UID).findFirst({
 			filters: { documentId: ctx.params.id, rejectedAt: { $notNull: true } },

@@ -1,0 +1,19 @@
+{
+  "collectionName": "components_charter_articles",
+  "info": {
+    "displayName": "article",
+    "icon": "bulletList",
+    "description": "Un engagement de la charte éthique"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "text": {
+      "type": "text",
+      "required": true
+    }
+  }
+}

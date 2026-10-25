@@ -2,6 +2,7 @@
 const seedBootstrap = require("./bootstrap");
 const registerNotifications = require("./notifications");
 const { registerSlotRelease, ensureSlotIndex } = require("./appointment-slots");
+const { ensureCharter } = require("./charter");
 
 module.exports = {
   /**
@@ -28,5 +29,7 @@ module.exports = {
     await seedBootstrap();
     // Index unique des créneaux : refuse en base deux réservations simultanées du même créneau
     await ensureSlotIndex(strapi);
+    // Charte éthique : créée avec le texte d'origine si absente, lisible par tous
+    await ensureCharter(strapi);
   },
 };
