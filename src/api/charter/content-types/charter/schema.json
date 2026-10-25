@@ -12,6 +12,11 @@
   },
   "pluginOptions": {},
   "attributes": {
+    "title": {
+      "type": "string",
+      "required": true,
+      "default": "Charte éthique et déontologique des praticiens"
+    },
     "version": {
       "type": "string",
       "required": true,
@@ -20,13 +25,13 @@
     "dateLabel": {
       "type": "string"
     },
-    "intro": {
-      "type": "text"
-    },
-    "articles": {
+    "sections": {
       "type": "component",
       "repeatable": true,
-      "component": "charter.article"
+      "component": "charter.section"
+    },
+    "declaration": {
+      "type": "text"
     }
   }
 }

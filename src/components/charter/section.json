@@ -1,0 +1,19 @@
+{
+  "collectionName": "components_charter_sections",
+  "info": {
+    "displayName": "section",
+    "icon": "bulletList",
+    "description": "Préambule ou article de la charte. Texte : une ligne vide entre deux paragraphes, « • » en début de ligne pour une puce."
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "content": {
+      "type": "text",
+      "required": true
+    }
+  }
+}
