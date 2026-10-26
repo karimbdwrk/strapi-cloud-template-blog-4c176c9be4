@@ -32,7 +32,8 @@ module.exports = {
     await ensureSlotIndex(strapi);
     // Charte éthique : créée avec le texte d'origine si absente, lisible par tous
     await ensureCharter(strapi);
-    // Indicateurs /admin : route ouverte aux comptes connectés, réservée au SuperAdmin par son contrôleur
-    await ensurePermission(strapi, "authenticated", "api::admin-stats.admin-stats.overview");
+    // Indicateurs /admin : permission du rôle SuperAdmin (Strapi vérifie le rôle du compte connecté),
+    // le contrôleur revérifie le rôle
+    await ensurePermission(strapi, { name: "SuperAdmin" }, "api::admin-stats.admin-stats.overview");
   },
 };

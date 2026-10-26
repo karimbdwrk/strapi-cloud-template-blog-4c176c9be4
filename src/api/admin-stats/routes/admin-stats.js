@@ -2,7 +2,7 @@
 
 /**
  * Indicateurs de la vue d'ensemble /admin (SuperAdmin uniquement, contrôlé dans le contrôleur).
- * La permission « Authenticated » est accordée au démarrage (src/permissions.js).
+ * La permission du rôle SuperAdmin est accordée au démarrage (src/index.js).
  */
 
 module.exports = {
