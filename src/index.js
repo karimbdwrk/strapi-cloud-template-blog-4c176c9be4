@@ -3,6 +3,7 @@ const seedBootstrap = require("./bootstrap");
 const registerNotifications = require("./notifications");
 const { registerSlotRelease, ensureSlotIndex } = require("./appointment-slots");
 const { ensureCharter } = require("./charter");
+const { ensurePermission } = require("./permissions");
 
 module.exports = {
   /**
@@ -31,5 +32,7 @@ module.exports = {
     await ensureSlotIndex(strapi);
     // Charte éthique : créée avec le texte d'origine si absente, lisible par tous
     await ensureCharter(strapi);
+    // Indicateurs /admin : route ouverte aux comptes connectés, réservée au SuperAdmin par son contrôleur
+    await ensurePermission(strapi, "authenticated", "api::admin-stats.admin-stats.overview");
   },
 };
