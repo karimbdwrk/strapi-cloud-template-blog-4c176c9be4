@@ -178,6 +178,29 @@ const outsideSchedule = (doctor, start, duration) => {
 	return null;
 };
 
+/**
+ * Mode du créneau (physical | online | both). L'après-midi commence à la fin de la pause,
+ * ou à splitTime quand la journée est scindée sans pause.
+ * Journées enregistrées avant les demi-journées : isOnline fait foi.
+ */
+const modeAt = (day, minutes) => {
+	const legacy = day.isOnline ? 'online' : 'physical';
+	const morning = day.morningMode || legacy;
+	const afternoon = day.afternoonMode || morning;
+	const pauseEnd = toMinutes(day.endBreak);
+	const boundary = toMinutes(day.startBreak) !== null && pauseEnd !== null ? pauseEnd : toMinutes(day.splitTime);
+	return boundary !== null && minutes >= boundary ? afternoon : morning;
+};
+
+/** Message d'erreur si le mode demandé (visio ou cabinet) n'est pas proposé sur ce créneau, sinon null. */
+const wrongMode = (doctor, start, isOnline) => {
+	const local = localParts(start);
+	const mode = modeAt(doctor[local.day], local.minutes);
+	if (mode === 'online' && !isOnline) return 'Ce créneau est réservé aux consultations en visio.';
+	if (mode === 'physical' && isOnline) return 'Ce créneau se déroule uniquement au cabinet.';
+	return null;
+};
+
 /** Vrai si un rendez-vous non annulé du praticien chevauche ce créneau. */
 const slotTaken = async (strapi, doctorId, start, duration) => {
 	const from = new Date(start.getTime() - 12 * 3600000);
@@ -302,6 +325,8 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 			if (!record) return ctx.forbidden('Complétez votre profil avant de prendre rendez-vous.');
 			const scheduleError = outsideSchedule(doctor, start, duration);
 			if (scheduleError) return ctx.badRequest(scheduleError);
+			const modeError = wrongMode(doctor, start, Boolean(data.isOnline));
+			if (modeError) return ctx.badRequest(modeError);
 		}
 
 		if (await slotTaken(strapi, doctor.id, start, duration)) {

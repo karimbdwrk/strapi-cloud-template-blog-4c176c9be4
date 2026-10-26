@@ -3,7 +3,7 @@
   "info": {
     "displayName": "workday",
     "icon": "apps",
-    "description": ""
+    "description": "Journée de consultation. morningMode / afternoonMode : physical (cabinet), online (visio) ou both. L'après-midi commence à la fin de la pause, ou à splitTime s'il n'y a pas de pause ; ni pause ni splitTime : morningMode vaut pour toute la journée. Modes vides : isOnline fait foi (anciennes journées)."
   },
   "options": {},
   "attributes": {
@@ -25,6 +25,25 @@
     "isOnline": {
       "type": "boolean",
       "default": true
+    },
+    "morningMode": {
+      "type": "enumeration",
+      "enum": [
+        "physical",
+        "online",
+        "both"
+      ]
+    },
+    "afternoonMode": {
+      "type": "enumeration",
+      "enum": [
+        "physical",
+        "online",
+        "both"
+      ]
+    },
+    "splitTime": {
+      "type": "time"
     },
     "startTime": {
       "type": "time"
