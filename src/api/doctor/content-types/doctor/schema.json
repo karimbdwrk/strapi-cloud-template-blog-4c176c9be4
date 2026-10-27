@@ -235,6 +235,12 @@
     "isRecommended": {
       "type": "boolean",
       "default": false
+    },
+    "keywords": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::keyword.keyword",
+      "inversedBy": "doctors"
     }
   }
 }

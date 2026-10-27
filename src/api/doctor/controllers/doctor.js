@@ -28,6 +28,8 @@ const PROTECTED_FIELDS = [
 	// Note globale : calculée par le serveur (src/rating-score.js)
 	'ratingAverage',
 	'ratingCount',
+	// Mots-clés : choisis via /keywords/mine (limite, mots-clés sensibles, modération)
+	'keywords',
 ];
 
 /**

@@ -6,6 +6,7 @@ const { ensureCharter } = require("./charter");
 const { ensurePermission, revokePermission } = require("./permissions");
 const { registerRatingScore, ensureDoctorRatings } = require("./rating-score");
 const { ensureProfessions } = require("./professions");
+const { registerKeywords, ensureKeywords } = require("./keywords");
 
 module.exports = {
   /**
@@ -21,6 +22,8 @@ module.exports = {
     registerSlotRelease(strapi);
     // Note globale du praticien recalculée à chaque avis (première note fictive à 5/5)
     registerRatingScore(strapi);
+    // Mots-clés : texte de recherche normalisé, effets de la modération (validation, refus)
+    registerKeywords(strapi);
   },
 
   /**
@@ -38,6 +41,8 @@ module.exports = {
     await ensureCharter(strapi);
     // Métiers référencés et familles de métiers (Médical, Paramédical, Bien-être) : ajoutés s'ils manquent
     await ensureProfessions(strapi);
+    // Liste Meyana des mots-clés de recherche (après les métiers, auxquels ils sont rattachés)
+    await ensureKeywords(strapi);
     // Indicateurs /admin : permission du rôle SuperAdmin (Strapi vérifie le rôle du compte connecté),
     // le contrôleur revérifie le rôle
     await ensurePermission(strapi, { name: "SuperAdmin" }, "api::admin-stats.admin-stats.overview");

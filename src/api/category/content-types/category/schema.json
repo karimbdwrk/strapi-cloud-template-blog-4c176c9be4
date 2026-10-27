@@ -63,6 +63,12 @@
       "relation": "manyToMany",
       "target": "api::profession-family.profession-family",
       "inversedBy": "categories"
+    },
+    "keywords": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::keyword.keyword",
+      "mappedBy": "categories"
     }
   }
 }

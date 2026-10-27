@@ -1,0 +1,79 @@
+{
+  "kind": "collectionType",
+  "collectionName": "keywords",
+  "info": {
+    "singularName": "keyword",
+    "pluralName": "keywords",
+    "displayName": "Mot-clé",
+    "description": "Mots-clés de recherche des praticiens (symptômes, motifs, approches, publics). Liste Meyana (global) ou mots-clés propres à un praticien, validés par la modération"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "maxLength": 60
+    },
+    "synonyms": {
+      "type": "text"
+    },
+    "type": {
+      "type": "enumeration",
+      "enum": [
+        "symptom",
+        "reason",
+        "approach",
+        "audience"
+      ],
+      "default": "symptom"
+    },
+    "sensitive": {
+      "type": "boolean",
+      "default": false
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "approved"
+    },
+    "global": {
+      "type": "boolean",
+      "default": true
+    },
+    "searchText": {
+      "type": "text"
+    },
+    "moderationNote": {
+      "type": "text",
+      "private": true
+    },
+    "moderatedAt": {
+      "type": "datetime"
+    },
+    "proposedBy": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::doctor.doctor",
+      "private": true
+    },
+    "categories": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::category.category",
+      "inversedBy": "keywords"
+    },
+    "doctors": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::doctor.doctor",
+      "mappedBy": "keywords"
+    }
+  }
+}

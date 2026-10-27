@@ -11,7 +11,8 @@
 
 // Types de notification qui partent aussi par email.
 // Exclus : note_added (trop fréquent), appointment_to_close (rappel interne)
-// et review_received (nouvel avis : notification dans le site uniquement).
+// review_received (nouvel avis : notification dans le site uniquement)
+// et keyword_approved / keyword_rejected (modération des mots-clés : dans le site uniquement).
 const EMAIL_TYPES = new Set([
 	'appointment_booked',
 	'appointment_added_by_doctor',
@@ -33,6 +34,7 @@ const EMAIL_TYPES = new Set([
 	'admin_doctor_pending',
 	'admin_report',
 	'admin_support',
+	'admin_keyword',
 ]);
 
 /**
@@ -60,7 +62,7 @@ const EMAIL_CATEGORIES = {
 		'recommended_granted',
 		'recommended_removed',
 	],
-	admin: ['admin_doctor_pending', 'admin_report', 'admin_support'],
+	admin: ['admin_doctor_pending', 'admin_report', 'admin_support', 'admin_keyword'],
 };
 
 const categoryOf = (type) =>

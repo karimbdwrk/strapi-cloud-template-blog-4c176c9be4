@@ -48,7 +48,10 @@
         "report_update",
         "admin_doctor_pending",
         "admin_report",
-        "admin_support"
+        "admin_support",
+        "keyword_approved",
+        "keyword_rejected",
+        "admin_keyword"
       ]
     },
     "body": {

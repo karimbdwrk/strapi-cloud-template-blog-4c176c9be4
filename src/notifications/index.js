@@ -19,6 +19,7 @@ const handlers = [
 	require('./appointments'),
 	require('./doctors'),
 	require('./reviews'),
+	require('./keywords'),
 ];
 
 module.exports = (strapi) => {
