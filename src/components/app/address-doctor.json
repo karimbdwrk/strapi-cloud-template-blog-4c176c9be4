@@ -3,7 +3,7 @@
   "info": {
     "displayName": "AddressDoctor",
     "icon": "apps",
-    "description": "Adresse de cabinet. citycode (code commune INSEE), latitude et longitude : renseignés quand l'adresse vient des suggestions de la Géoplateforme (IGN)"
+    "description": "Adresse de cabinet. citycode (code commune INSEE), latitude et longitude : renseignés quand l'adresse vient des suggestions de la Géoplateforme (IGN). geocodedAt : date de la vérification automatique (src/address-geocoding.js)"
   },
   "options": {},
   "attributes": {
@@ -27,6 +27,9 @@
     },
     "longitude": {
       "type": "float"
+    },
+    "geocodedAt": {
+      "type": "datetime"
     }
   }
 }

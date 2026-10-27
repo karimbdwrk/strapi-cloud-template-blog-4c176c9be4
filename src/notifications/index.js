@@ -25,7 +25,8 @@ const handlers = [
 module.exports = (strapi) => {
 	strapi.documents.use(async (context, next) => {
 		const concerned = handlers.filter((h) => !h.uids || h.uids.includes(context.uid));
-		if (!concerned.length) return next();
+		// `silent: true` : correction technique (ex. vérification des adresses), sans notification
+		if (!concerned.length || context.params?.silent) return next();
 
 		// État avant l'action (ex. ancien statut d'un praticien)
 		const previous = new Map();

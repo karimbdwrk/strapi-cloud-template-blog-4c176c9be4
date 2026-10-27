@@ -7,6 +7,7 @@ const { ensurePermission, revokePermission } = require("./permissions");
 const { registerRatingScore, ensureDoctorRatings } = require("./rating-score");
 const { ensureProfessions } = require("./professions");
 const { registerKeywords, ensureKeywords } = require("./keywords");
+const { scheduleAddressGeocoding } = require("./address-geocoding");
 
 module.exports = {
   /**
@@ -43,6 +44,8 @@ module.exports = {
     await ensureProfessions(strapi);
     // Liste Meyana des mots-clés de recherche (après les métiers, auxquels ils sont rattachés)
     await ensureKeywords(strapi);
+    // Adresses de cabinet saisies à la main : ville et code postal vérifiés (tâche de fond)
+    scheduleAddressGeocoding(strapi);
     // Indicateurs /admin : permission du rôle SuperAdmin (Strapi vérifie le rôle du compte connecté),
     // le contrôleur revérifie le rôle
     await ensurePermission(strapi, { name: "SuperAdmin" }, "api::admin-stats.admin-stats.overview");
