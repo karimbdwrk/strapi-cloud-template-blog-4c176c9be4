@@ -10,7 +10,8 @@
  */
 
 // Types de notification qui partent aussi par email.
-// Exclus : note_added (trop fréquent) et appointment_to_close (rappel interne).
+// Exclus : note_added (trop fréquent), appointment_to_close (rappel interne)
+// et review_received (nouvel avis : notification dans le site uniquement).
 const EMAIL_TYPES = new Set([
 	'appointment_booked',
 	'appointment_added_by_doctor',
@@ -19,7 +20,6 @@ const EMAIL_TYPES = new Set([
 	'visio_link_added',
 	'document_added',
 	'review_request',
-	'review_received',
 	'account_pending',
 	'account_validated',
 	'account_rejected',
