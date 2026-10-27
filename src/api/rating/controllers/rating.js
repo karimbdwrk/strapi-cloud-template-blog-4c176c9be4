@@ -7,7 +7,10 @@
  *   non annulé et pas encore évalué. L'auteur, le praticien et la note finale sont
  *   fixés par le serveur (le navigateur n'envoie que les notes et le commentaire).
  * - update / delete : réservés au SuperAdmin (modération).
- * La lecture reste celle de Strapi (avis publics, sans les données de l'auteur).
+ * - find / findOne : réservés au SuperAdmin. Un avis n'est jamais transmis au praticien
+ *   (ni le détail des notes, ni le rendez-vous) : il ne voit que sa note globale
+ *   (doctor.ratingAverage, voir src/rating-score.js).
+ * - testimonials : moyennes du site et commentaires anonymes de la page d'accueil, sans note individuelle.
  */
 
 const { randomUUID } = require('crypto');
@@ -18,6 +21,14 @@ const APPOINTMENT_UID = 'api::appointment.appointment';
 const ADMIN_ROLE = 'SuperAdmin';
 const CRITERIA = ['punctuality', 'respect', 'response', 'professionalism', 'listening', 'conditions'];
 const NOTE_MAX_LENGTH = 2000;
+// Page d'accueil : commentaires assez longs pour être lus, les plus récents
+const QUOTE_MIN_LENGTH = 20;
+const QUOTES_COUNT = 6;
+
+const average = (values) => {
+	const list = values.map(Number).filter((n) => Number.isFinite(n) && n > 0);
+	return list.length ? Math.round((list.reduce((sum, n) => sum + n, 0) / list.length) * 100) / 100 : null;
+};
 
 const isAdmin = (user) => user?.role?.name === ADMIN_ROLE;
 
@@ -76,6 +87,40 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		const sanitizedEntity = await this.sanitizeOutput(entity, ctx);
 		ctx.status = 201;
 		return this.transformResponse(sanitizedEntity);
+	},
+
+	async find(ctx) {
+		if (!isAdmin(ctx.state.user)) return ctx.forbidden();
+		return super.find(ctx);
+	},
+
+	async findOne(ctx) {
+		if (!isAdmin(ctx.state.user)) return ctx.forbidden();
+		return super.findOne(ctx);
+	},
+
+	async testimonials() {
+		const ratings = await strapi.db.query(UID).findMany({
+			select: ['documentId', 'finalScore', 'note', 'createdAt', ...CRITERIA],
+			populate: { doctor: { select: ['firstname', 'lastname'] } },
+			orderBy: { createdAt: 'desc' },
+		});
+		return {
+			data: {
+				count: ratings.length,
+				overall: average(ratings.map((r) => r.finalScore)),
+				criteria: Object.fromEntries(CRITERIA.map((key) => [key, average(ratings.map((r) => r[key]))])),
+				quotes: ratings
+					.filter((r) => r.note?.trim().length > QUOTE_MIN_LENGTH)
+					.slice(0, QUOTES_COUNT)
+					.map((r) => ({
+						id: r.documentId,
+						note: r.note.trim(),
+						createdAt: r.createdAt,
+						doctor: r.doctor ? { firstname: r.doctor.firstname, lastname: r.doctor.lastname } : null,
+					})),
+			},
+		};
 	},
 
 	async update(ctx) {

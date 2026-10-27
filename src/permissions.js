@@ -16,4 +16,11 @@ const ensurePermission = async (strapi, role, action) => {
 	}
 };
 
-module.exports = { ensurePermission };
+/** Retire une action à un rôle users-permissions (si elle lui était accordée). */
+const revokePermission = async (strapi, role, action) => {
+	const found = await strapi.query('plugin::users-permissions.role').findOne({ where: role });
+	if (!found) return;
+	await strapi.query('plugin::users-permissions.permission').deleteMany({ where: { action, role: found.id } });
+};
+
+module.exports = { ensurePermission, revokePermission };

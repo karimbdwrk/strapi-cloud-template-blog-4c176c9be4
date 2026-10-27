@@ -2,7 +2,7 @@
 
 /**
  * Notifications liées aux avis et aux signalements.
- *   - nouvel avis           → praticien : review_received
+ *   - nouvel avis           → praticien : review_received (sans la note ni le rendez-vous)
  *   - nouveau signalement   → admins    : admin_report
  *   - statut du signalement → auteur    : report_update (pris en charge, traité, classé sans suite)
  */
@@ -12,24 +12,21 @@ const { fullName, formatShortDate, notifier } = require('./helpers');
 const RATING_UID = 'api::rating.rating';
 const REPORT_UID = 'api::reporting.reporting';
 
+// Ni la note ni le rendez-vous : un avis n'est jamais rattachable à une consultation par le praticien
 const onRating = async (strapi, created) => {
 	const rating = await strapi.documents(RATING_UID).findOne({
 		documentId: created.documentId,
-		fields: ['finalScore'],
-		populate: {
-			doctor: { fields: ['UUID'], populate: { users_permissions_user: { fields: ['id'] } } },
-			appointment: { fields: ['datetime'] },
-		},
+		fields: ['id'],
+		populate: { doctor: { fields: ['UUID'], populate: { users_permissions_user: { fields: ['id'] } } } },
 	});
 	if (!rating?.doctor) return;
 
-	const score = Number(rating.finalScore || 0).toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 	await notifier(strapi).notify({
 		recipient: rating.doctor.users_permissions_user?.id,
 		type: 'review_received',
-		title: `Nouvel avis : ${score}/5`,
-		body: rating.appointment?.datetime ? `Rendez-vous du ${formatShortDate(rating.appointment.datetime)}` : null,
-		link: rating.doctor.UUID ? `/doctor/${rating.doctor.UUID}` : '/dashboard',
+		title: 'Vous avez reçu un nouvel avis',
+		body: 'Votre note globale a été mise à jour.',
+		link: '/dashboard',
 		dedupeKey: `review_received:${rating.documentId}`,
 	});
 };

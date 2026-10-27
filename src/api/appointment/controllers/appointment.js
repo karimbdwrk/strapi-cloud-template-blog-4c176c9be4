@@ -107,6 +107,27 @@ const attachPatients = async (strapi, appointments, user) => {
 	}
 };
 
+/**
+ * isRated : le patient sait s'il a déjà évalué le rendez-vous. L'avis lui-même n'est pas renvoyé
+ * (lecture des avis réservée à l'admin) et le praticien ne reçoit pas cette information.
+ */
+const attachRated = async (strapi, appointments, user) => {
+	const list = (Array.isArray(appointments) ? appointments : [appointments]).filter(Boolean);
+	const ids = list.map((a) => a.documentId).filter(Boolean);
+	if (!ids.length) return;
+
+	const rows = await strapi.db.query(UID).findMany({
+		where: { documentId: { $in: ids } },
+		select: ['documentId'],
+		populate: { patient: { select: ['id'] }, rating: { select: ['id'] } },
+	});
+	const byId = new Map(rows.map((r) => [r.documentId, r]));
+	for (const appointment of list) {
+		const row = byId.get(appointment.documentId);
+		if (row?.patient?.id === user.id) appointment.isRated = Boolean(row.rating);
+	}
+};
+
 /* ---------- Contrôles de réservation ---------- */
 
 /** Heure locale (Paris) d'une date : { day: 'monday', minutes: 570, date: '2026-10-28' } */
@@ -273,6 +294,7 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		});
 		const sanitizedResults = await this.sanitizeOutput(results, ctx);
 		if (withPatient) await attachPatients(strapi, sanitizedResults, user);
+		await attachRated(strapi, sanitizedResults, user);
 		return this.transformResponse(sanitizedResults, { pagination });
 	},
 
@@ -285,6 +307,7 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		const withPatient = wantsPatient(ctx.query?.populate);
 		const response = await super.findOne(ctx);
 		if (withPatient && response?.data) await attachPatients(strapi, response.data, user);
+		if (response?.data) await attachRated(strapi, response.data, user);
 		return response;
 	},
 

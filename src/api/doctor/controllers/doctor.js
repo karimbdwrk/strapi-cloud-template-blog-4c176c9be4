@@ -25,6 +25,9 @@ const PROTECTED_FIELDS = [
 	'rejectedAt',
 	'rejectionReason',
 	'users_permissions_user',
+	// Note globale : calculée par le serveur (src/rating-score.js)
+	'ratingAverage',
+	'ratingCount',
 ];
 
 /**

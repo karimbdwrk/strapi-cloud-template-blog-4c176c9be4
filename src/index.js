@@ -3,7 +3,8 @@ const seedBootstrap = require("./bootstrap");
 const registerNotifications = require("./notifications");
 const { registerSlotRelease, ensureSlotIndex } = require("./appointment-slots");
 const { ensureCharter } = require("./charter");
-const { ensurePermission } = require("./permissions");
+const { ensurePermission, revokePermission } = require("./permissions");
+const { registerRatingScore, ensureDoctorRatings } = require("./rating-score");
 
 module.exports = {
   /**
@@ -17,6 +18,8 @@ module.exports = {
     registerNotifications(strapi);
     // Un rendez-vous annulé libère son créneau (verrou anti double réservation)
     registerSlotRelease(strapi);
+    // Note globale du praticien recalculée à chaque avis (première note fictive à 5/5)
+    registerRatingScore(strapi);
   },
 
   /**
@@ -42,5 +45,14 @@ module.exports = {
     for (const action of ["create", "find", "findOne", "update", "delete"]) {
       await ensurePermission(strapi, { name: "SuperAdmin" }, `api::reporting.reporting.${action}`);
     }
+    // Avis : lecture réservée à l'admin. Sans cette permission, Strapi retire aussi les avis
+    // des populate (doctor.ratings, appointment.rating) : le praticien ne voit que sa note globale
+    for (const role of [{ type: "public" }, { type: "authenticated" }]) {
+      for (const action of ["find", "findOne"]) await revokePermission(strapi, role, `api::rating.rating.${action}`);
+    }
+    for (const action of ["find", "findOne", "update", "delete"]) {
+      await ensurePermission(strapi, { name: "SuperAdmin" }, `api::rating.rating.${action}`);
+    }
+    await ensureDoctorRatings(strapi);
   },
 };

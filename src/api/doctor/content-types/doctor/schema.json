@@ -97,6 +97,13 @@
       "target": "api::rating.rating",
       "mappedBy": "doctor"
     },
+    "ratingAverage": {
+      "type": "decimal"
+    },
+    "ratingCount": {
+      "type": "integer",
+      "default": 0
+    },
     "reason": {
       "type": "component",
       "component": "user.reason",
