@@ -39,6 +39,28 @@
     },
     "note": {
       "type": "richtext"
+    },
+    "reportStatus": {
+      "type": "enumeration",
+      "enum": [
+        "open",
+        "in_progress",
+        "resolved",
+        "dismissed"
+      ],
+      "default": "open"
+    },
+    "adminNote": {
+      "type": "text"
+    },
+    "resolution": {
+      "type": "text"
+    },
+    "history": {
+      "type": "json"
+    },
+    "closedAt": {
+      "type": "datetime"
     }
   }
 }

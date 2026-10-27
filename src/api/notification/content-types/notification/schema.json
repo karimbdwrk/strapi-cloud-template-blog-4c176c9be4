@@ -45,6 +45,7 @@
         "recommended_removed",
         "support_reply",
         "support_resolved",
+        "report_update",
         "admin_doctor_pending",
         "admin_report",
         "admin_support"

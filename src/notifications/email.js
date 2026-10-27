@@ -29,6 +29,7 @@ const EMAIL_TYPES = new Set([
 	'recommended_removed',
 	'support_reply',
 	'support_resolved',
+	'report_update',
 	'admin_doctor_pending',
 	'admin_report',
 	'admin_support',
@@ -49,7 +50,7 @@ const EMAIL_CATEGORIES = {
 		'document_added',
 	],
 	reviews: ['review_request', 'review_received'],
-	support: ['support_reply', 'support_resolved'],
+	support: ['support_reply', 'support_resolved', 'report_update'],
 	account: [
 		'account_pending',
 		'account_validated',
@@ -73,6 +74,7 @@ const ctaLabel = (type) => {
 	if (type === 'review_request') return 'Donner mon avis';
 	if (type.startsWith('appointment') || type === 'visio_link_added' || type === 'document_added') return 'Voir le rendez-vous';
 	if (type.startsWith('support')) return 'Voir ma demande';
+	if (type === 'report_update') return 'Voir mon signalement';
 	if (type.startsWith('admin')) return 'Ouvrir l’administration';
 	if (type === 'review_received' || type.startsWith('recommended')) return 'Voir mon profil';
 	return 'Accéder à mon espace';

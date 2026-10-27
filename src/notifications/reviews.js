@@ -4,6 +4,7 @@
  * Notifications liées aux avis et aux signalements.
  *   - nouvel avis           → praticien : review_received
  *   - nouveau signalement   → admins    : admin_report
+ *   - statut du signalement → auteur    : report_update (pris en charge, traité, classé sans suite)
  */
 
 const { fullName, formatShortDate, notifier } = require('./helpers');
@@ -50,11 +51,54 @@ const onReport = async (strapi, created) => {
 	});
 };
 
+// Message à l'auteur selon le nouveau statut (pas de notification quand un signalement est rouvert)
+const REPORT_UPDATES = {
+	in_progress: 'Votre signalement est pris en charge',
+	resolved: 'Votre signalement a été traité',
+	dismissed: 'Votre signalement a été clôturé',
+};
+
+const onReportUpdated = async (strapi, updated, previousStatus) => {
+	const report = await strapi.documents(REPORT_UID).findOne({
+		documentId: updated.documentId,
+		fields: ['from', 'reportStatus', 'resolution'],
+		populate: {
+			patient: { fields: ['id'] },
+			doctor: { fields: ['id'], populate: { users_permissions_user: { fields: ['id'] } } },
+			appointment: { fields: ['UUID', 'datetime'] },
+		},
+	});
+	const title = REPORT_UPDATES[report?.reportStatus];
+	if (!title || report.reportStatus === (previousStatus || 'open')) return;
+
+	const recipient = report.from === 'doctor' ? report.doctor?.users_permissions_user?.id : report.patient?.id;
+	const when = report.appointment?.datetime ? `Rendez-vous du ${formatShortDate(report.appointment.datetime)}` : null;
+	await notifier(strapi).notify({
+		recipient,
+		type: 'report_update',
+		title,
+		body: report.reportStatus === 'in_progress' ? when : report.resolution?.trim() || when,
+		link: report.appointment?.UUID ? `/appointment/${report.appointment.UUID}` : '/dashboard',
+		dedupeKey: `report_update:${report.documentId}:${report.reportStatus}:${Date.now()}`,
+	});
+};
+
 module.exports = {
 	uids: [RATING_UID, REPORT_UID],
 
-	async handle(strapi, context, result) {
-		if (context.action !== 'create' || !result?.documentId) return;
+	/** Statut du signalement avant une mise à jour (pour ne notifier qu'un vrai changement). */
+	async before(strapi, context) {
+		if (context.uid !== REPORT_UID || context.action !== 'update' || !context.params?.documentId) return null;
+		const report = await strapi.documents(REPORT_UID).findOne({ documentId: context.params.documentId, fields: ['reportStatus'] });
+		return report?.reportStatus || null;
+	},
+
+	async handle(strapi, context, result, previous) {
+		if (!result?.documentId) return;
+		if (context.uid === REPORT_UID && context.action === 'update' && context.params?.data?.reportStatus) {
+			return onReportUpdated(strapi, result, previous);
+		}
+		if (context.action !== 'create') return;
 		if (context.uid === RATING_UID) return onRating(strapi, result);
 		if (context.uid === REPORT_UID) return onReport(strapi, result);
 	},
