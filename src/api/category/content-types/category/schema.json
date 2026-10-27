@@ -57,6 +57,12 @@
       "relation": "manyToMany",
       "target": "api::office.office",
       "mappedBy": "categories"
+    },
+    "families": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::profession-family.profession-family",
+      "inversedBy": "categories"
     }
   }
 }

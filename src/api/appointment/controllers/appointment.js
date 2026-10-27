@@ -130,6 +130,13 @@ const attachRated = async (strapi, appointments, user) => {
 
 /* ---------- Contrôles de réservation ---------- */
 
+/** Praticien qui ne reçoit que des femmes ou que des hommes : message si la personne consultée ne correspond pas */
+const wrongGender = (doctor, gender) => {
+	if (doctor.onlyWomen && gender === 'man') return 'Ce praticien reçoit uniquement des femmes.';
+	if (doctor.onlyMen && gender === 'woman') return 'Ce praticien reçoit uniquement des hommes.';
+	return null;
+};
+
 /** Heure locale (Paris) d'une date : { day: 'monday', minutes: 570, date: '2026-10-28' } */
 const localParts = (date) => {
 	const parts = Object.fromEntries(
@@ -168,7 +175,7 @@ const findDoctor = (strapi, value) => {
 	const where = typeof key === 'number' || /^\d+$/.test(String(key)) ? { id: Number(key) } : { documentId: String(key) };
 	return strapi.db.query(DOCTOR_UID).findOne({
 		where,
-		select: ['id', 'documentId', 'isActive'],
+		select: ['id', 'documentId', 'isActive', 'onlyWomen', 'onlyMen'],
 		populate: {
 			users_permissions_user: { select: ['id'] },
 			holidays: true,
@@ -344,8 +351,14 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 			const record = await strapi.db.query(RECORD_UID).findOne({
 				where: { users_permissions_user: { id: user.id }, isActive: true },
 				select: ['id'],
+				populate: { healthRecord: { select: ['gender'] } },
 			});
 			if (!record) return ctx.forbidden('Complétez votre profil avant de prendre rendez-vous.');
+			// Personne consultée : le proche s'il est renseigné, sinon le patient connecté
+			const genderError = data.someoneElse?.firstname
+				? wrongGender(doctor, data.someoneElse.gender)
+				: wrongGender(doctor, record.healthRecord?.gender);
+			if (genderError) return ctx.badRequest(genderError);
 			const scheduleError = outsideSchedule(doctor, start, duration);
 			if (scheduleError) return ctx.badRequest(scheduleError);
 			const modeError = wrongMode(doctor, start, Boolean(data.isOnline));

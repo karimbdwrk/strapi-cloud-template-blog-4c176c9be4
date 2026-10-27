@@ -5,6 +5,7 @@ const { registerSlotRelease, ensureSlotIndex } = require("./appointment-slots");
 const { ensureCharter } = require("./charter");
 const { ensurePermission, revokePermission } = require("./permissions");
 const { registerRatingScore, ensureDoctorRatings } = require("./rating-score");
+const { ensureProfessions } = require("./professions");
 
 module.exports = {
   /**
@@ -35,6 +36,8 @@ module.exports = {
     await ensureSlotIndex(strapi);
     // Charte éthique : créée avec le texte d'origine si absente, lisible par tous
     await ensureCharter(strapi);
+    // Métiers référencés et familles de métiers (Médical, Paramédical, Bien-être) : ajoutés s'ils manquent
+    await ensureProfessions(strapi);
     // Indicateurs /admin : permission du rôle SuperAdmin (Strapi vérifie le rôle du compte connecté),
     // le contrôleur revérifie le rôle
     await ensurePermission(strapi, { name: "SuperAdmin" }, "api::admin-stats.admin-stats.overview");

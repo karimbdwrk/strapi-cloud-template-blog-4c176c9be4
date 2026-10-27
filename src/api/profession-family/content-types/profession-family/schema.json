@@ -1,0 +1,39 @@
+{
+  "kind": "collectionType",
+  "collectionName": "profession_families",
+  "info": {
+    "singularName": "profession-family",
+    "pluralName": "profession-families",
+    "displayName": "Famille de métiers",
+    "description": "Regroupe les métiers (catégories) par domaine : Médical, Paramédical, Bien-être et accompagnement"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "name"
+    },
+    "domain": {
+      "type": "enumeration",
+      "enum": ["medical", "paramedical", "wellbeing"],
+      "required": true
+    },
+    "order": {
+      "type": "integer",
+      "default": 0
+    },
+    "categories": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::category.category",
+      "mappedBy": "families"
+    }
+  }
+}
