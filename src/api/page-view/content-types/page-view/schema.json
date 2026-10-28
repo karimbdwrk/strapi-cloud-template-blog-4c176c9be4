@@ -1,0 +1,43 @@
+{
+  "kind": "collectionType",
+  "collectionName": "page_views",
+  "info": {
+    "singularName": "page-view",
+    "pluralName": "page-views",
+    "displayName": "Visite de page",
+    "description": "Mesure d'audience sans cookie : une ligne par page vue (conservée 13 mois)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {
+    "content-manager": { "visible": true },
+    "content-type-builder": { "visible": true }
+  },
+  "attributes": {
+    "path": { "type": "string", "required": true },
+    "pageType": {
+      "type": "enumeration",
+      "enum": ["home", "search", "doctor", "article", "blog", "other", "not_found"],
+      "default": "other"
+    },
+    "doctorDocumentId": { "type": "string" },
+    "source": {
+      "type": "enumeration",
+      "enum": ["direct", "search", "social", "internal", "referral"],
+      "default": "direct"
+    },
+    "sourceName": { "type": "string" },
+    "visitor": {
+      "type": "enumeration",
+      "enum": ["anonymous", "patient", "practitioner"],
+      "default": "anonymous"
+    },
+    "device": {
+      "type": "enumeration",
+      "enum": ["mobile", "tablet", "desktop"],
+      "default": "desktop"
+    },
+    "visitorHash": { "type": "string", "private": true }
+  }
+}

@@ -10,6 +10,10 @@ module.exports = ({ env }) => ({
 	jwt: {
 		secret: env("JWT_SECRET"),
 	},
+	cron: {
+		enabled: true,
+		tasks: require('./cron-tasks'),
+	},
 	webhooks: {
 		populateRelations: env.bool("WEBHOOKS_POPULATE_RELATIONS", false),
 	},

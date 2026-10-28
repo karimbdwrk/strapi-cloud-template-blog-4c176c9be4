@@ -65,5 +65,10 @@ module.exports = {
       await ensurePermission(strapi, { name: "SuperAdmin" }, `api::rating.rating.${action}`);
     }
     await ensureDoctorRatings(strapi);
+    // Audience : le praticien lit celle de sa fiche, l'admin celle du site (contrôleurs revérifient)
+    await ensurePermission(strapi, { type: "authenticated" }, "api::page-view.page-view.mine");
+    for (const action of ["site", "doctors"]) {
+      await ensurePermission(strapi, { name: "SuperAdmin" }, `api::page-view.page-view.${action}`);
+    }
   },
 };
