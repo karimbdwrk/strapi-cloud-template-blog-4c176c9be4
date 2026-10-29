@@ -6,7 +6,11 @@
  * Stripe assume les risques (fraude, contestations) des comptes des praticiens : la consultation
  * est donc encaissée directement sur le compte Stripe du praticien (« paiement direct »), et
  * Meyana prélève COMMISSION_RATE au passage (frais de carte à la charge de Meyana).
- * Stripe verse le praticien chaque lundi ; Meyana lui envoie le récapitulatif de la semaine.
+ * - Versement : les virements du compte sont manuels. Chaque lundi, Meyana verse au praticien
+ *   les consultations qu'il a clôturées (« Clôturer le rendez-vous » valide qu'elle a bien eu
+ *   lieu ; jamais une consultation à venir, qui peut encore être annulée, remboursée ou
+ *   contestée), dans la limite du solde disponible chez Stripe ; le reste est reporté au lundi
+ *   suivant. Le récapitulatif part par email, avec les consultations passées à clôturer.
  *
  * - Compte du praticien : créé via l'API Accounts v2 avec un jeton (obligatoire pour une
  *   plateforme française), tableau de bord Express. Le praticien remplit ensuite le
@@ -46,6 +50,9 @@ const PAYMENT_FIELDS = [
 	'pendingUntil',
 ];
 const ACCOUNT_FIELDS = ['id', 'documentId', 'firstname', 'lastname', 'UUID', 'isActive', 'stripeAccountId', 'paymentsEnabled'];
+
+// Les virements sont déclenchés par Meyana (mondayPayouts), jamais automatiquement par Stripe
+const MANUAL_PAYOUTS = { settings: { payouts: { schedule: { interval: 'manual' } } } };
 
 const cents = (euros) => Math.round(Number(euros) * 100);
 const commissionOf = (amountCents) => Math.round(amountCents * COMMISSION_RATE);
@@ -275,17 +282,18 @@ const createAccount = async (doctor, user) => {
 		},
 		process.env.STRIPE_SECRET_KEY
 	);
-	// Versement automatique chaque lundi
-	await stripe().accounts.update(account.id, {
-		settings: { payouts: { schedule: { interval: 'weekly', weekly_anchor: 'monday' } } },
-	});
+	await stripe().accounts.update(account.id, MANUAL_PAYOUTS);
 	return account.id;
 };
 
 /** État du compte relu chez Stripe ; paymentsEnabled = le compte peut encaisser */
 const syncAccount = async (strapi, doctor) => {
 	if (!doctor.stripeAccountId) return { ...doctor, account: null };
-	const account = await stripe().accounts.retrieve(doctor.stripeAccountId);
+	let account = await stripe().accounts.retrieve(doctor.stripeAccountId);
+	// Comptes créés avant les virements manuels : Stripe ne doit plus verser seul
+	if (account.settings?.payouts?.schedule?.interval !== 'manual') {
+		account = await stripe().accounts.update(doctor.stripeAccountId, MANUAL_PAYOUTS);
+	}
 	const paymentsEnabled = Boolean(account.charges_enabled);
 	if (paymentsEnabled !== Boolean(doctor.paymentsEnabled)) {
 		await strapi.db.query(DOCTOR).update({ where: { id: doctor.id }, data: { paymentsEnabled } });
@@ -335,7 +343,25 @@ const startOfWeek = (date = new Date()) => {
 	return d;
 };
 
-/** Page Paiements du praticien : état du compte et consultations payées en ligne */
+const hasStarted = (appointment, now = new Date()) => new Date(appointment.datetime) <= now;
+
+/**
+ * Montant versable au praticien : consultation clôturée par lui, ou annulée trop tard par le
+ * patient (le montant lui reste acquis) une fois la date passée.
+ */
+const isPayable = (appointment, now = new Date()) =>
+	appointment.isCancelled ? hasStarted(appointment, now) : Boolean(appointment.isOver);
+
+/** Répartit des consultations payées et pas encore versées : à verser, à clôturer, à venir */
+const splitUnpaid = (appointments, now = new Date()) => ({
+	due: appointments.filter((a) => isPayable(a, now)),
+	toClose: appointments.filter((a) => !isPayable(a, now) && hasStarted(a, now)),
+	upcoming: appointments.filter((a) => !hasStarted(a, now)),
+});
+
+const PAYOUT_FIELDS = ['id', 'UUID', 'datetime', 'price', 'isOver', 'isCancelled', 'paidOutAt'];
+
+/** Page Paiements du praticien : état du compte, consultations à venir, à verser et versées */
 const accountSummary = async (strapi, user) => {
 	let doctor = await doctorOfUser(strapi, user);
 	if (!doctor) throw httpError(403, 'Réservé aux praticiens.');
@@ -343,12 +369,11 @@ const accountSummary = async (strapi, user) => {
 
 	const paid = await strapi.db.query(APPOINTMENT).findMany({
 		where: { doctor: { id: doctor.id }, paymentStatus: 'paid' },
-		select: ['price', 'paidAt'],
-		limit: 2000,
+		select: PAYOUT_FIELDS,
+		orderBy: { datetime: 'asc' },
+		limit: 5000,
 	});
-	const thisWeek = startOfWeek();
-	const lastWeek = new Date(thisWeek.getTime() - 7 * 86400000);
-	const between = (from, to) => paid.filter((a) => a.paidAt && new Date(a.paidAt) >= from && (!to || new Date(a.paidAt) < to));
+	const { due, toClose, upcoming } = splitUnpaid(paid.filter((a) => !a.paidOutAt));
 	const requirements = doctor.account?.requirements || {};
 	return {
 		account: {
@@ -359,57 +384,142 @@ const accountSummary = async (strapi, user) => {
 			actionRequired: (requirements.currently_due || []).length > 0 || (requirements.past_due || []).length > 0,
 		},
 		commissionRate: COMMISSION_RATE,
-		thisWeek: totalsOf(between(thisWeek)),
-		lastWeek: totalsOf(between(lastWeek, thisWeek)),
-		total: totalsOf(paid),
+		due: totalsOf(due),
+		toClose: {
+			...totalsOf(toClose),
+			appointments: toClose.slice(0, 20).map((a) => ({ uuid: a.UUID, datetime: a.datetime, net: netCents(a) / 100 })),
+		},
+		upcoming: totalsOf(upcoming),
+		paidOut: totalsOf(paid.filter((a) => a.paidOutAt)),
 	};
 };
 
 /* ------------------------------------------------------------------ */
-/* Récapitulatif du lundi                                              */
+/* Versement du lundi                                                  */
 /* ------------------------------------------------------------------ */
 
 const euros = (value) =>
 	`${Number(value).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 
-/** Chaque lundi : consultations payées en ligne la semaine passée, par praticien */
-const weeklyRecap = async (strapi) => {
-	const to = startOfWeek();
-	const from = new Date(to.getTime() - 7 * 86400000);
-	const paid = await strapi.db.query(APPOINTMENT).findMany({
-		where: { paymentStatus: 'paid', paidAt: { $gte: from, $lt: to } },
-		select: ['datetime', 'price'],
-		populate: { doctor: { select: ['id', 'firstname'], populate: { users_permissions_user: { select: ['id'] } } } },
-		orderBy: { datetime: 'asc' },
+const netCents = (appointment) => cents(appointment.price) - commissionOf(cents(appointment.price));
+
+/** Solde du compte disponible pour un virement (en centimes, euros uniquement) */
+const availableCents = async (accountId) => {
+	const balance = await stripe().balance.retrieve({}, onAccount(accountId));
+	return (balance.available || []).filter((b) => b.currency === 'eur').reduce((s, b) => s + b.amount, 0);
+};
+
+/**
+ * Verse à un praticien ses consultations clôturées et pas encore versées, des plus anciennes aux
+ * plus récentes, tant que le solde disponible les couvre. Renvoie le détail pour l'email.
+ */
+const payOutDoctor = async (strapi, doctor, appointments, now) => {
+	const { due, toClose, upcoming } = splitUnpaid(
+		[...appointments].sort((a, b) => new Date(a.datetime) - new Date(b.datetime)),
+		now
+	);
+	let available = due.length ? await availableCents(doctor.stripeAccountId) : 0;
+	const paidOut = [];
+	for (const a of due) {
+		if (netCents(a) > available) break;
+		available -= netCents(a);
+		paidOut.push(a);
+	}
+	const amount = paidOut.reduce((s, a) => s + netCents(a), 0);
+	if (amount > 0) {
+		const payout = await stripe().payouts.create(
+			{
+				amount,
+				currency: 'eur',
+				description: 'Consultations Meyana',
+				metadata: { doctorDocumentId: doctor.documentId, appointments: paidOut.length },
+			},
+			{ ...onAccount(doctor.stripeAccountId), idempotencyKey: `payout-${doctor.id}-${startOfWeek(now).toISOString().slice(0, 10)}` }
+		);
+		await strapi.db.query(APPOINTMENT).updateMany({
+			where: { id: { $in: paidOut.map((a) => a.id) } },
+			data: { paidOutAt: now, payoutId: payout.id },
+		});
+	}
+	return { paidOut, carriedOver: due.slice(paidOut.length), toClose, upcoming };
+};
+
+const plural = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
+
+/** Chaque lundi : virement des consultations clôturées et récapitulatif, par praticien */
+const mondayPayouts = async (strapi) => {
+	const now = new Date();
+	const pending = await strapi.db.query(APPOINTMENT).findMany({
+		where: { paymentStatus: 'paid', paidOutAt: { $null: true } },
+		select: PAYOUT_FIELDS,
+		populate: {
+			doctor: {
+				select: ['id', 'documentId', 'firstname', 'stripeAccountId'],
+				populate: { users_permissions_user: { select: ['id'] } },
+			},
+		},
 		limit: 5000,
 	});
 	const byDoctor = new Map();
-	for (const a of paid) {
-		if (!a.doctor) continue;
+	for (const a of pending) {
+		if (!a.doctor?.stripeAccountId) continue;
 		const row = byDoctor.get(a.doctor.id) ?? { doctor: a.doctor, appointments: [] };
 		row.appointments.push(a);
 		byDoctor.set(a.doctor.id, row);
 	}
 	for (const { doctor, appointments } of byDoctor.values()) {
-		const t = totalsOf(appointments);
+		let result;
+		try {
+			result = await payOutDoctor(strapi, doctor, appointments, now);
+		} catch (error) {
+			// Compte incomplet (IBAN manquant…) : on réessaiera lundi prochain
+			strapi.log.error(`Versement impossible pour le praticien ${doctor.documentId} : ${error.message}`);
+			continue;
+		}
+		const { paidOut, carriedOver, toClose, upcoming } = result;
+		if (!paidOut.length && !carriedOver.length && !toClose.length) continue;
+		const t = totalsOf(paidOut);
+		const notes = [];
+		if (toClose.length) {
+			notes.push(
+				`${plural(toClose.length, 'consultation passée')} (${euros(totalsOf(toClose).net)}) ${toClose.length > 1 ? 'attendent' : 'attend'} votre clôture : ouvrez le rendez-vous et cliquez sur « Clôturer le rendez-vous » pour ${toClose.length > 1 ? 'qu’elles soient versées' : 'qu’elle soit versée'} lundi prochain.`
+			);
+		}
+		if (carriedOver.length) {
+			notes.push(
+				`${plural(carriedOver.length, 'consultation clôturée')} (${euros(totalsOf(carriedOver).net)}) ${carriedOver.length > 1 ? 'seront versées' : 'sera versée'} lundi prochain, une fois les fonds disponibles chez notre prestataire de paiement.`
+			);
+		}
+		if (upcoming.length) {
+			notes.push(
+				`${plural(upcoming.length, 'consultation à venir')} (${euros(totalsOf(upcoming).net)}) : versement le lundi qui suit sa clôture.`
+			);
+		}
+		notes.push('Frais de paiement inclus dans la commission : rien d’autre n’est déduit.');
 		await strapi.service('api::notification.notification').emailUser({
 			recipient: doctor.users_permissions_user?.id,
 			category: 'account',
 			email: {
-				subject: `Votre semaine sur Meyana : ${euros(t.net)}`,
+				subject: paidOut.length ? `Votre virement Meyana : ${euros(t.net)}` : 'Votre récapitulatif Meyana',
 				...renderEmail({
-					title: 'Le récapitulatif de votre semaine',
+					title: paidOut.length ? 'Votre virement de la semaine' : 'Le récapitulatif de votre semaine',
 					paragraphs: [
 						doctor.firstname ? `Bonjour ${doctor.firstname},` : 'Bonjour,',
-						`${t.count} consultation${t.count > 1 ? 's' : ''} payée${t.count > 1 ? 's' : ''} en ligne la semaine dernière. Les montants sont versés sur votre compte bancaire chaque lundi, dès qu’ils sont disponibles chez notre prestataire de paiement.`,
+						paidOut.length
+							? `Nous venons de vous virer ${plural(paidOut.length, 'consultation')} ${paidOut.length > 1 ? 'clôturées' : 'clôturée'}. Le virement arrive sur votre compte bancaire sous 1 à 3 jours ouvrés.`
+							: carriedOver.length
+							? 'Aucun virement cette semaine : les fonds de vos consultations clôturées ne sont pas encore disponibles chez notre prestataire de paiement.'
+							: 'Aucun virement cette semaine : vos consultations passées n’ont pas encore été clôturées.',
 					],
-					details: [
-						...appointments.map((a) => [formatWhen(a.datetime), euros(a.price)]),
-						['Total encaissé', euros(t.gross)],
-						[`Commission Meyana (${COMMISSION_RATE * 100} %)`, `− ${euros(t.commission)}`],
-						['Pour vous', euros(t.net)],
-					],
-					notes: ['Frais de paiement inclus dans la commission : rien d’autre n’est déduit.'],
+					details: paidOut.length
+						? [
+								...paidOut.map((a) => [formatWhen(a.datetime), euros(a.price)]),
+								['Total encaissé', euros(t.gross)],
+								[`Commission Meyana (${COMMISSION_RATE * 100} %)`, `− ${euros(t.commission)}`],
+								['Virement', euros(t.net)],
+						  ]
+						: [],
+					notes,
 					link: '/dashboard/paiements',
 					cta: 'Voir mes paiements',
 				}),
@@ -443,6 +553,6 @@ module.exports = {
 	onboardingLink,
 	dashboardLink,
 	accountSummary,
-	weeklyRecap,
+	mondayPayouts,
 	handlePaymentEvent,
 };

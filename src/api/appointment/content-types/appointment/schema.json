@@ -283,6 +283,14 @@
     "paymentAccountId": {
       "type": "string",
       "private": true
+    },
+    "paidOutAt": {
+      "type": "datetime",
+      "private": true
+    },
+    "payoutId": {
+      "type": "string",
+      "private": true
     }
   }
 }

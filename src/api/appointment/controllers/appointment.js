@@ -44,7 +44,7 @@ const NOT_CANCELLED = { $or: [{ isCancelled: false }, { isCancelled: { $null: tr
 // Réservations non encore payées : invisibles dans les listes (elles bloquent seulement le créneau)
 const NOT_PENDING = { $or: [{ paymentStatus: { $ne: 'pending' } }, { paymentStatus: { $null: true } }] };
 // Champs de paiement : fixés par le serveur uniquement
-const PAYMENT_INPUT = ['price', 'paymentStatus', 'paidAt', 'refundedAt', 'isPaid'];
+const PAYMENT_INPUT = ['price', 'paymentStatus', 'paidAt', 'refundedAt', 'paidOutAt', 'isPaid'];
 
 // populate=* ou toute demande qui inclut la relation patient (patient, patient.user_record…)
 const wantsPatient = (populate) =>
@@ -492,10 +492,18 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		if (!Object.keys(data).length) return ctx.badRequest('Aucune modification autorisée dans cette demande.');
 		// L'auteur de l'annulation est fixé par le serveur (il détermine qui est prévenu)
 		if (data.isCancelled === true) data.isCancelledByPatient = role === 'patient';
-		// « Payé » se coche pour un règlement au cabinet, pas pour une consultation payée en ligne
-		if ('isPaid' in data) {
-			const current = await strapi.db.query(UID).findOne({ where: { documentId: ctx.params.id }, select: ['paymentStatus'] });
+		if ('isPaid' in data || 'isOver' in data) {
+			const current = await strapi.db.query(UID).findOne({
+				where: { documentId: ctx.params.id },
+				select: ['paymentStatus', 'datetime', 'paidOutAt'],
+			});
+			// « Payé » se coche pour un règlement au cabinet, pas pour une consultation payée en ligne
 			if (current?.paymentStatus && current.paymentStatus !== 'none') delete data.isPaid;
+			// La clôture par le praticien valide la consultation et déclenche son versement le lundi
+			if (data.isOver === true && current?.datetime && new Date(current.datetime) > new Date()) {
+				return ctx.badRequest('Vous pourrez clôturer ce rendez-vous une fois la consultation commencée.');
+			}
+			if (data.isOver === false && current?.paidOutAt) delete data.isOver;
 		}
 		// Remboursement éventuel avant l'annulation (règle des 24 h pour le patient)
 		if (data.isCancelled === true) {

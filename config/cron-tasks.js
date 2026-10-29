@@ -2,7 +2,7 @@
 
 const { purge } = require('../src/audience');
 const { expireOffers } = require('../src/billing');
-const { expirePending, weeklyRecap } = require('../src/payments');
+const { expirePending, mondayPayouts } = require('../src/payments');
 
 /** Tâches planifiées (heure de Paris) */
 module.exports = {
@@ -21,9 +21,9 @@ module.exports = {
 		task: ({ strapi }) => expirePending(strapi),
 		options: { rule: '*/5 * * * *', tz: 'Europe/Paris' },
 	},
-	// Consultations : récapitulatif de la semaine aux praticiens (Stripe les verse le lundi)
-	weeklyPaymentsRecap: {
-		task: ({ strapi }) => weeklyRecap(strapi),
+	// Consultations : virement des consultations passées et récapitulatif aux praticiens
+	mondayPayouts: {
+		task: ({ strapi }) => mondayPayouts(strapi),
 		options: { rule: '0 8 * * 1', tz: 'Europe/Paris' },
 	},
 };
