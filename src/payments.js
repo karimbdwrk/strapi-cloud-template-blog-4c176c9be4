@@ -359,9 +359,39 @@ const splitUnpaid = (appointments, now = new Date()) => ({
 	upcoming: appointments.filter((a) => !hasStarted(a, now)),
 });
 
-const PAYOUT_FIELDS = ['id', 'UUID', 'datetime', 'price', 'isOver', 'isCancelled', 'paidOutAt'];
+const PAYOUT_FIELDS = ['id', 'UUID', 'datetime', 'price', 'isOver', 'isCancelled', 'paidOutAt', 'payoutId'];
 
-/** Page Paiements du praticien : état du compte, consultations à venir, à verser et versées */
+/**
+ * Virements du praticien (les plus récents d'abord), lus chez Stripe pour leur état et leur date
+ * d'arrivée, avec les consultations que chacun contient.
+ */
+const payoutHistory = async (strapi, doctor, paid) => {
+	if (!doctor.stripeAccountId) return [];
+	let payouts;
+	try {
+		payouts = await stripe().payouts.list({ limit: 24 }, onAccount(doctor.stripeAccountId));
+	} catch (error) {
+		strapi.log.error(`Virements illisibles pour le praticien ${doctor.documentId} : ${error.message}`);
+		return [];
+	}
+	const byPayout = new Map();
+	for (const a of paid) {
+		if (!a.payoutId) continue;
+		if (!byPayout.has(a.payoutId)) byPayout.set(a.payoutId, []);
+		byPayout.get(a.payoutId).push({ datetime: a.datetime, price: Number(a.price), net: netCents(a) / 100 });
+	}
+	return payouts.data.map((p) => ({
+		id: p.id,
+		createdAt: new Date(p.created * 1000).toISOString(),
+		arrivalDate: p.arrival_date ? new Date(p.arrival_date * 1000).toISOString() : null,
+		amount: p.amount / 100,
+		// paid, pending, in_transit, canceled, failed
+		status: p.status,
+		appointments: byPayout.get(p.id) || [],
+	}));
+};
+
+/** Page Paiements du praticien : état du compte, consultations à venir, à verser et versées, virements */
 const accountSummary = async (strapi, user) => {
 	let doctor = await doctorOfUser(strapi, user);
 	if (!doctor) throw httpError(403, 'Réservé aux praticiens.');
@@ -391,6 +421,7 @@ const accountSummary = async (strapi, user) => {
 		},
 		upcoming: totalsOf(upcoming),
 		paidOut: totalsOf(paid.filter((a) => a.paidOutAt)),
+		payouts: await payoutHistory(strapi, doctor, paid),
 	};
 };
 
