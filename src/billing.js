@@ -11,6 +11,9 @@
  *
  * `doctor.plan` (public) est recalculé à chaque changement : c'est lui que lit le site.
  *
+ * Le praticien paie dans la page Abonnement de Meyana : seuls les champs de carte sont
+ * fournis par Stripe (voir prepareSubscription).
+ *
  * Variables d'environnement :
  *   STRIPE_SECRET_KEY      clé secrète (sans elle, l'abonnement est désactivé)
  *   STRIPE_WEBHOOK_SECRET  secret de signature des webhooks (whsec_…)
@@ -245,45 +248,108 @@ const ensureCustomer = async (strapi, doctor, user) => {
 	return saveDoctor(strapi, doctor, { stripeCustomerId: customer.id });
 };
 
-/** Page de paiement Stripe pour souscrire à Premium */
-const createCheckout = async (strapi, user, interval) => {
-	if (!PRICES[interval]) throw httpError(400, 'Formule inconnue.');
+// Paiement par carte uniquement (formulaire Meyana, champs de carte fournis par Stripe)
+const PAYMENT_METHOD_TYPES = ['card'];
+
+/** Mois offerts par l'admin : la facturation commence à leur fin ; sinon, mois d'essai s'il n'a pas servi */
+const trialOf = (doctor) => {
+	if (isFuture(doctor.offeredUntil, 48 * 3600 * 1000)) {
+		return { trial_end: Math.floor(new Date(doctor.offeredUntil).getTime() / 1000) };
+	}
+	if (!doctor.trialUsed) return { trial_period_days: TRIAL_DAYS };
+	return null;
+};
+
+/** Praticien prêt à souscrire : catalogue chargé, pas d'abonnement en cours, client Stripe créé */
+const subscribableDoctor = async (strapi, user) => {
 	let doctor = await doctorOfUser(strapi, user);
 	if (!doctor) throw httpError(403, 'Réservé aux praticiens.');
+	if (!doctor.isActive) throw httpError(403, 'Votre profil doit être validé avant de souscrire.');
 	await readyCatalog();
 	doctor = await syncDoctor(strapi, doctor);
 	if (PREMIUM_STATUSES.includes(doctor.subscriptionStatus)) {
 		throw httpError(409, 'Vous avez déjà un abonnement Premium.');
 	}
-	doctor = await ensureCustomer(strapi, doctor, user);
+	return ensureCustomer(strapi, doctor, user);
+};
 
-	// Mois offerts par l'admin : la facturation commence à leur fin ; sinon, mois d'essai
-	const subscriptionData = { metadata: { doctorDocumentId: doctor.documentId } };
-	if (isFuture(doctor.offeredUntil, 48 * 3600 * 1000)) {
-		subscriptionData.trial_end = Math.floor(new Date(doctor.offeredUntil).getTime() / 1000);
-	} else if (!doctor.trialUsed) {
-		subscriptionData.trial_period_days = TRIAL_DAYS;
-	}
-	if (subscriptionData.trial_end || subscriptionData.trial_period_days) {
-		subscriptionData.trial_settings = { end_behavior: { missing_payment_method: 'cancel' } };
+/** Tentatives de paiement abandonnées : un seul abonnement en attente à la fois */
+const cancelIncomplete = async (customerId) => {
+	const { data } = await stripe().subscriptions.list({ customer: customerId, status: 'incomplete', limit: 10 });
+	for (const subscription of data) await stripe().subscriptions.cancel(subscription.id);
+};
+
+/**
+ * Prépare le formulaire de paiement de la page Abonnement.
+ * - Avec essai (ou mois offerts) : enregistrement de la carte seul, l'abonnement est créé
+ *   ensuite par `confirmTrialSubscription` (abandonner le formulaire ne donne pas d'essai).
+ * - Sans essai : abonnement en attente du premier paiement, confirmé par le formulaire.
+ * Renvoie { mode: 'setup' | 'payment', clientSecret }.
+ */
+const prepareSubscription = async (strapi, user, interval) => {
+	if (!PRICES[interval]) throw httpError(400, 'Formule inconnue.');
+	const doctor = await subscribableDoctor(strapi, user);
+	await cancelIncomplete(doctor.stripeCustomerId);
+
+	if (trialOf(doctor)) {
+		const setupIntent = await stripe().setupIntents.create({
+			customer: doctor.stripeCustomerId,
+			usage: 'off_session',
+			payment_method_types: PAYMENT_METHOD_TYPES,
+			metadata: { doctorDocumentId: doctor.documentId, interval },
+		});
+		return { mode: 'setup', clientSecret: setupIntent.client_secret };
 	}
 
-	const base = `${frontUrl()}/dashboard/abonnement`;
-	const session = await stripe().checkout.sessions.create({
-		mode: 'subscription',
+	const subscription = await stripe().subscriptions.create({
 		customer: doctor.stripeCustomerId,
-		line_items: [{ price: priceIds[interval], quantity: 1 }],
-		subscription_data: subscriptionData,
-		payment_method_collection: 'always',
-		billing_address_collection: 'required',
-		customer_update: { name: 'auto', address: 'auto' },
-		tax_id_collection: { enabled: true },
-		allow_promotion_codes: true,
-		locale: 'fr',
-		success_url: `${base}?paiement=ok`,
-		cancel_url: `${base}?paiement=annule`,
+		items: [{ price: priceIds[interval] }],
+		payment_behavior: 'default_incomplete',
+		payment_settings: {
+			save_default_payment_method: 'on_subscription',
+			payment_method_types: PAYMENT_METHOD_TYPES,
+		},
+		metadata: { doctorDocumentId: doctor.documentId },
+		expand: ['latest_invoice.confirmation_secret'],
 	});
-	return session.url;
+	return { mode: 'payment', clientSecret: subscription.latest_invoice.confirmation_secret.client_secret };
+};
+
+/** Carte enregistrée (essai ou mois offerts) : création de l'abonnement, sans débit immédiat */
+const confirmTrialSubscription = async (strapi, user, setupIntentId) => {
+	if (typeof setupIntentId !== 'string' || !setupIntentId.startsWith('seti_')) {
+		throw httpError(400, 'Enregistrement de carte inconnu.');
+	}
+	let doctor = await doctorOfUser(strapi, user);
+	if (!doctor) throw httpError(403, 'Réservé aux praticiens.');
+	doctor = await syncDoctor(strapi, doctor);
+	// Double envoi (retour de validation bancaire, double clic) : déjà fait
+	if (PREMIUM_STATUSES.includes(doctor.subscriptionStatus)) return doctor;
+
+	const setupIntent = await stripe().setupIntents.retrieve(setupIntentId);
+	if (setupIntent.customer !== doctor.stripeCustomerId) throw httpError(403, 'Enregistrement de carte inconnu.');
+	if (setupIntent.status !== 'succeeded') throw httpError(402, 'La carte n’a pas été validée.');
+	const interval = PRICES[setupIntent.metadata?.interval] ? setupIntent.metadata.interval : 'month';
+	await readyCatalog();
+
+	const paymentMethod = setupIntent.payment_method;
+	await stripe().customers.update(doctor.stripeCustomerId, {
+		invoice_settings: { default_payment_method: paymentMethod },
+	});
+	const trial = trialOf(doctor);
+	const subscription = await stripe().subscriptions.create(
+		{
+			customer: doctor.stripeCustomerId,
+			items: [{ price: priceIds[interval] }],
+			default_payment_method: paymentMethod,
+			...(trial ?? {}),
+			...(trial && { trial_settings: { end_behavior: { missing_payment_method: 'cancel' } } }),
+			payment_settings: { payment_method_types: PAYMENT_METHOD_TYPES },
+			metadata: { doctorDocumentId: doctor.documentId },
+		},
+		{ idempotencyKey: `meyana-subscription-${setupIntentId}` }
+	);
+	return (await syncSubscription(strapi, subscription)) ?? doctor;
 };
 
 /** Portail Stripe : carte, factures, changement de formule, résiliation */
@@ -375,7 +441,8 @@ module.exports = {
 	findDoctor,
 	doctorOfUser,
 	syncDoctor,
-	createCheckout,
+	prepareSubscription,
+	confirmTrialSubscription,
 	createPortal,
 	offerMonths,
 	expireOffers,

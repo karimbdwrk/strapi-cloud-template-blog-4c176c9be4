@@ -72,9 +72,11 @@ module.exports = {
       await ensurePermission(strapi, { name: "SuperAdmin" }, `api::page-view.page-view.${action}`);
     }
     // Abonnements : le praticien gère le sien, l'admin offre des mois (contrôleurs revérifient)
-    for (const action of ["mine", "checkout", "portal", "sync"]) {
+    for (const action of ["mine", "subscribe", "confirm", "portal", "sync"]) {
       await ensurePermission(strapi, { type: "authenticated" }, `api::billing.billing.${action}`);
     }
+    // Ancienne page de paiement hébergée, remplacée par /billing/subscribe
+    await revokePermission(strapi, { type: "authenticated" }, "api::billing.billing.checkout");
     for (const action of ["doctor", "offer", "offerAll"]) {
       await ensurePermission(strapi, { name: "SuperAdmin" }, `api::billing.billing.${action}`);
     }

@@ -57,11 +57,20 @@ module.exports = {
 		});
 	},
 
-	/** POST /api/billing/checkout { interval: 'month' | 'year' } → { url } */
-	async checkout(ctx) {
+	/** POST /api/billing/subscribe { interval: 'month' | 'year' } → { mode, clientSecret } */
+	async subscribe(ctx) {
 		if (!ctx.state.user) return ctx.unauthorized();
 		await run(ctx, async () => {
-			ctx.body = { url: await billing.createCheckout(strapi, ctx.state.user, ctx.request.body?.interval) };
+			ctx.body = { data: await billing.prepareSubscription(strapi, ctx.state.user, ctx.request.body?.interval) };
+		});
+	},
+
+	/** POST /api/billing/confirm { setupIntent } : abonnement avec essai, une fois la carte validée */
+	async confirm(ctx) {
+		if (!ctx.state.user) return ctx.unauthorized();
+		await run(ctx, async () => {
+			const doctor = await billing.confirmTrialSubscription(strapi, ctx.state.user, ctx.request.body?.setupIntent);
+			ctx.body = { data: billing.summary(doctor) };
 		});
 	},
 
