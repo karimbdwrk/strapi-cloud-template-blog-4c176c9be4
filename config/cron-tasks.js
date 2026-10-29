@@ -1,6 +1,7 @@
 'use strict';
 
 const { purge } = require('../src/audience');
+const { expireOffers } = require('../src/billing');
 
 /** Tâches planifiées (heure de Paris) */
 module.exports = {
@@ -8,5 +9,10 @@ module.exports = {
 	purgeOldPageViews: {
 		task: ({ strapi }) => purge(strapi),
 		options: { rule: '30 4 * * *', tz: 'Europe/Paris' },
+	},
+	// Abonnements : les mois offerts arrivés à terme repassent en Essentiel
+	expireOfferedMonths: {
+		task: ({ strapi }) => expireOffers(strapi),
+		options: { rule: '15 0 * * *', tz: 'Europe/Paris' },
 	},
 };

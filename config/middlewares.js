@@ -5,7 +5,8 @@ module.exports = [
   'strapi::cors',
   'strapi::poweredBy',
   'strapi::query',
-  'strapi::body',
+  // Corps brut conservé pour vérifier la signature des webhooks Stripe
+  { name: 'strapi::body', config: { includeUnparsed: true } },
   'strapi::session',
   'strapi::favicon',
   'strapi::public',

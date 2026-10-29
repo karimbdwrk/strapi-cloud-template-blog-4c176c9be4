@@ -30,6 +30,16 @@ const PROTECTED_FIELDS = [
 	'ratingCount',
 	// Mots-clés : choisis via /keywords/mine (limite, mots-clés sensibles, modération)
 	'keywords',
+	// Abonnement : géré par src/billing.js (paiement, mois offerts par l'admin)
+	'plan',
+	'offeredUntil',
+	'trialUsed',
+	'stripeCustomerId',
+	'stripeSubscriptionId',
+	'subscriptionStatus',
+	'subscriptionInterval',
+	'subscriptionPeriodEnd',
+	'subscriptionCancelAtPeriodEnd',
 ];
 
 /**

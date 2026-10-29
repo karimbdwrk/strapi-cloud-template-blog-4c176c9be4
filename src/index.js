@@ -4,6 +4,7 @@ const registerNotifications = require("./notifications");
 const { registerSlotRelease, ensureSlotIndex } = require("./appointment-slots");
 const { ensureCharter } = require("./charter");
 const { ensurePermission, revokePermission } = require("./permissions");
+const { setupBilling } = require("./billing");
 const { registerRatingScore, ensureDoctorRatings } = require("./rating-score");
 const { ensureProfessions } = require("./professions");
 const { registerKeywords, ensureKeywords } = require("./keywords");
@@ -70,5 +71,14 @@ module.exports = {
     for (const action of ["site", "doctors"]) {
       await ensurePermission(strapi, { name: "SuperAdmin" }, `api::page-view.page-view.${action}`);
     }
+    // Abonnements : le praticien gère le sien, l'admin offre des mois (contrôleurs revérifient)
+    for (const action of ["mine", "checkout", "portal", "sync"]) {
+      await ensurePermission(strapi, { type: "authenticated" }, `api::billing.billing.${action}`);
+    }
+    for (const action of ["doctor", "offer", "offerAll"]) {
+      await ensurePermission(strapi, { name: "SuperAdmin" }, `api::billing.billing.${action}`);
+    }
+    // Catalogue Stripe (formules Premium, portail client) créé s'il manque
+    await setupBilling(strapi);
   },
 };

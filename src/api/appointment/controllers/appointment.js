@@ -175,7 +175,7 @@ const findDoctor = (strapi, value) => {
 	const where = typeof key === 'number' || /^\d+$/.test(String(key)) ? { id: Number(key) } : { documentId: String(key) };
 	return strapi.db.query(DOCTOR_UID).findOne({
 		where,
-		select: ['id', 'documentId', 'isActive', 'onlyWomen', 'onlyMen'],
+		select: ['id', 'documentId', 'isActive', 'onlyWomen', 'onlyMen', 'onlyPhone', 'plan'],
 		populate: {
 			users_permissions_user: { select: ['id'] },
 			holidays: true,
@@ -347,6 +347,10 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		} else {
 			data.isFromDoctor = false;
 			if (!doctor.isActive) return ctx.badRequest('Ce praticien ne prend pas de rendez-vous pour le moment.');
+			// Offre Essentiel (ou choix du praticien) : rendez-vous par téléphone uniquement
+			if (doctor.plan !== 'premium' || doctor.onlyPhone) {
+				return ctx.badRequest('Ce praticien prend ses rendez-vous par téléphone.');
+			}
 			if (start.getTime() < Date.now()) return ctx.badRequest('Ce créneau est déjà passé.');
 			const record = await strapi.db.query(RECORD_UID).findOne({
 				where: { users_permissions_user: { id: user.id }, isActive: true },

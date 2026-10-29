@@ -241,6 +241,52 @@
       "relation": "manyToMany",
       "target": "api::keyword.keyword",
       "inversedBy": "doctors"
+    },
+    "plan": {
+      "type": "enumeration",
+      "enum": [
+        "essentiel",
+        "premium"
+      ],
+      "default": "essentiel"
+    },
+    "offeredUntil": {
+      "type": "datetime",
+      "private": true
+    },
+    "trialUsed": {
+      "type": "boolean",
+      "default": false,
+      "private": true
+    },
+    "stripeCustomerId": {
+      "type": "string",
+      "private": true
+    },
+    "stripeSubscriptionId": {
+      "type": "string",
+      "private": true
+    },
+    "subscriptionStatus": {
+      "type": "string",
+      "private": true
+    },
+    "subscriptionInterval": {
+      "type": "enumeration",
+      "enum": [
+        "month",
+        "year"
+      ],
+      "private": true
+    },
+    "subscriptionPeriodEnd": {
+      "type": "datetime",
+      "private": true
+    },
+    "subscriptionCancelAtPeriodEnd": {
+      "type": "boolean",
+      "default": false,
+      "private": true
     }
   }
 }
