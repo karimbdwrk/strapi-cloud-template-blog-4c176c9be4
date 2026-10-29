@@ -12,6 +12,7 @@
 
 const { createCoreController } = require('@strapi/strapi').factories;
 const { currentCharterVersion } = require('../../../charter');
+const payments = require('../../../payments');
 
 const UID = 'api::doctor.doctor';
 const USER_UID = 'plugin::users-permissions.user';
@@ -40,6 +41,9 @@ const PROTECTED_FIELDS = [
 	'subscriptionInterval',
 	'subscriptionPeriodEnd',
 	'subscriptionCancelAtPeriodEnd',
+	// Paiement des consultations : géré par src/payments.js
+	'stripeAccountId',
+	'paymentsEnabled',
 ];
 
 /**
@@ -105,7 +109,23 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 	async update(ctx) {
 		const user = ctx.state.user;
 		if (!user) return ctx.unauthorized();
-		if (isAdmin(user)) return super.update(ctx);
+		if (isAdmin(user)) {
+			// Première validation : le praticien doit avoir activé son compte de paiement (formulaire Stripe).
+			// Les praticiens déjà en ligne ou validés une fois (suspendus puis réactivés) ne sont pas concernés.
+			if (ctx.request.body?.data?.isActive === true) {
+				const doctor = await strapi.db.query(UID).findOne({
+					where: { documentId: ctx.params.id },
+					select: ['id', 'documentId', 'isActive', 'validatedAt', 'stripeAccountId', 'paymentsEnabled'],
+				});
+				if (doctor && !doctor.isActive && !doctor.validatedAt) {
+					const synced = await payments.syncAccount(strapi, doctor).catch(() => doctor);
+					if (!synced.paymentsEnabled) {
+						return ctx.badRequest('Ce praticien doit d’abord activer ses paiements (formulaire de notre prestataire de paiement).');
+					}
+				}
+			}
+			return super.update(ctx);
+		}
 
 		const own = await strapi.documents(UID).findFirst({
 			filters: { documentId: ctx.params.id, users_permissions_user: { id: user.id } },

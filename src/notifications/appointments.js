@@ -3,7 +3,7 @@
 /**
  * Notifications liées aux rendez-vous.
  *
- * Création
+ * Création (ou paiement accepté, pour une réservation payée en ligne)
  *   - pris par le patient       → praticien : appointment_booked
  *                               → patient   : appointment_booked (confirmation)
  *   - ajouté par le praticien   → patient   : appointment_added_by_doctor
@@ -62,7 +62,8 @@ const context = (a) => {
 
 const onCreate = async (strapi, created) => {
 	const a = await loadAppointment(strapi, created.documentId);
-	if (!a) return;
+	// En attente de paiement : confirmé (et notifié) au paiement, voir onUpdate
+	if (!a || a.paymentStatus === 'pending') return;
 	const c = context(a);
 	const n = notifier(strapi);
 
@@ -109,6 +110,11 @@ const onUpdate = async (strapi, data, updated, previous) => {
 	const c = context(a);
 	const n = notifier(strapi);
 	const jobs = [];
+
+	// Paiement accepté : la réservation est confirmée maintenant
+	if (data.paymentStatus === 'paid' && previous?.paymentStatus === 'pending') {
+		return onCreate(strapi, a);
+	}
 
 	// Annulation
 	if (data.isCancelled === true && !previous?.isCancelled) {
@@ -224,7 +230,7 @@ module.exports = {
 	/** Valeurs avant mise à jour, pour ne notifier que les vrais changements. */
 	async before(strapi, context) {
 		if (context.action !== 'update' || !context.params?.documentId) return null;
-		const fields = ['isCancelled', 'isOver', 'visioLink', 'note', 'doctorNote'];
+		const fields = ['isCancelled', 'isOver', 'visioLink', 'note', 'doctorNote', 'paymentStatus'];
 		const prev = await strapi.documents(UID).findOne({
 			documentId: context.params.documentId,
 			fields,

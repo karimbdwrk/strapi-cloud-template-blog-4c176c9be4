@@ -17,6 +17,7 @@
  * Variables d'environnement :
  *   STRIPE_SECRET_KEY      clé secrète (sans elle, l'abonnement est désactivé)
  *   STRIPE_WEBHOOK_SECRET  secret de signature des webhooks (whsec_…)
+ *   STRIPE_CONNECT_WEBHOOK_SECRET  (facultatif) secret du webhook des comptes des praticiens
  */
 
 const Stripe = require('stripe');
@@ -403,13 +404,20 @@ const expireOffers = async (strapi) => {
 
 /** Webhook Stripe : corps brut vérifié avec STRIPE_WEBHOOK_SECRET */
 const handleWebhook = async (strapi, rawBody, signature) => {
-	if (!process.env.STRIPE_WEBHOOK_SECRET) throw httpError(503, 'Webhook non configuré.');
+	// Deux destinations possibles chez Stripe : le compte Meyana et les comptes des praticiens
+	const secrets = [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_CONNECT_WEBHOOK_SECRET].filter(Boolean);
+	if (!secrets.length) throw httpError(503, 'Webhook non configuré.');
 	let event;
-	try {
-		event = stripe().webhooks.constructEvent(rawBody, signature, process.env.STRIPE_WEBHOOK_SECRET);
-	} catch (error) {
-		throw httpError(400, `Signature invalide (${error.message})`);
+	let lastError;
+	for (const secret of secrets) {
+		try {
+			event = stripe().webhooks.constructEvent(rawBody, signature, secret);
+			break;
+		} catch (error) {
+			lastError = error;
+		}
 	}
+	if (!event) throw httpError(400, `Signature invalide (${lastError.message})`);
 	const object = event.data.object;
 	switch (event.type) {
 		case 'customer.subscription.created':
@@ -423,6 +431,10 @@ const handleWebhook = async (strapi, rawBody, signature) => {
 				await syncSubscription(strapi, await stripe().subscriptions.retrieve(object.subscription));
 			}
 			break;
+		case 'payment_intent.succeeded':
+			// Paiement d'une consultation (chargé ici : payments.js dépend de ce module)
+			await require('./payments').handlePaymentEvent(strapi, event);
+			break;
 		case 'invoice.paid':
 		case 'invoice.payment_failed': {
 			const id = object.parent?.subscription_details?.subscription ?? object.subscription;
@@ -435,6 +447,8 @@ const handleWebhook = async (strapi, rawBody, signature) => {
 };
 
 module.exports = {
+	stripe,
+	httpError,
 	DOCTOR_FIELDS,
 	setupBilling,
 	summary,

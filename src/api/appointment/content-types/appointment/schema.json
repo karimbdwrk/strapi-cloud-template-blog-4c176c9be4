@@ -248,6 +248,41 @@
       "relation": "oneToMany",
       "target": "api::notification.notification",
       "mappedBy": "appointment"
+    },
+    "price": {
+      "type": "decimal"
+    },
+    "paymentStatus": {
+      "type": "enumeration",
+      "enum": [
+        "none",
+        "pending",
+        "paid",
+        "refunded"
+      ],
+      "default": "none"
+    },
+    "paidAt": {
+      "type": "datetime"
+    },
+    "refundedAt": {
+      "type": "datetime"
+    },
+    "paymentIntentId": {
+      "type": "string",
+      "private": true
+    },
+    "chargeId": {
+      "type": "string",
+      "private": true
+    },
+    "pendingUntil": {
+      "type": "datetime",
+      "private": true
+    },
+    "paymentAccountId": {
+      "type": "string",
+      "private": true
     }
   }
 }

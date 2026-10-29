@@ -287,6 +287,14 @@
       "type": "boolean",
       "default": false,
       "private": true
+    },
+    "stripeAccountId": {
+      "type": "string",
+      "private": true
+    },
+    "paymentsEnabled": {
+      "type": "boolean",
+      "default": false
     }
   }
 }

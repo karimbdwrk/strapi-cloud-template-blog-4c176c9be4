@@ -80,6 +80,13 @@ module.exports = {
     for (const action of ["doctor", "offer", "offerAll"]) {
       await ensurePermission(strapi, { name: "SuperAdmin" }, `api::billing.billing.${action}`);
     }
+    // Paiement des consultations : le patient confirme ou abandonne son paiement, le praticien gère ses versements
+    for (const action of ["confirmPayment", "abandonPayment"]) {
+      await ensurePermission(strapi, { type: "authenticated" }, `api::appointment.appointment.${action}`);
+    }
+    for (const action of ["mine", "onboarding", "dashboard"]) {
+      await ensurePermission(strapi, { type: "authenticated" }, `api::payout.payout.${action}`);
+    }
     // Catalogue Stripe (formules Premium, portail client) créé s'il manque
     await setupBilling(strapi);
   },

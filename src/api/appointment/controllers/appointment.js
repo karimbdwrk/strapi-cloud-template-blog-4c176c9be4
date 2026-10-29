@@ -13,11 +13,14 @@
  *   dossier patient complet) ; le patient est toujours le compte connecté.
  * - update : patient ou praticien du rendez-vous, chacun limité à ses champs.
  * - delete : SuperAdmin uniquement.
+ * Paiement (src/payments.js) : un rendez-vous pris en ligne par un patient est payé à la
+ * réservation ; il reste « en attente de paiement » (masqué des listes) jusqu'au paiement.
  * Le SuperAdmin garde un accès complet.
  */
 
 const { createCoreController } = require('@strapi/strapi').factories;
 const { slotKeyFor, isUniqueViolation } = require('../../../appointment-slots');
+const payments = require('../../../payments');
 
 const UID = 'api::appointment.appointment';
 const DOCTOR_UID = 'api::doctor.doctor';
@@ -38,6 +41,10 @@ const isAdmin = (user) => user?.role?.name === ADMIN_ROLE;
 
 // « Non annulé » : false ou vide. Un simple $ne: true exclurait aussi les valeurs NULL en SQL.
 const NOT_CANCELLED = { $or: [{ isCancelled: false }, { isCancelled: { $null: true } }] };
+// Réservations non encore payées : invisibles dans les listes (elles bloquent seulement le créneau)
+const NOT_PENDING = { $or: [{ paymentStatus: { $ne: 'pending' } }, { paymentStatus: { $null: true } }] };
+// Champs de paiement : fixés par le serveur uniquement
+const PAYMENT_INPUT = ['price', 'paymentStatus', 'paidAt', 'refundedAt', 'isPaid'];
 
 // populate=* ou toute demande qui inclut la relation patient (patient, patient.user_record…)
 const wantsPatient = (populate) =>
@@ -175,9 +182,11 @@ const findDoctor = (strapi, value) => {
 	const where = typeof key === 'number' || /^\d+$/.test(String(key)) ? { id: Number(key) } : { documentId: String(key) };
 	return strapi.db.query(DOCTOR_UID).findOne({
 		where,
-		select: ['id', 'documentId', 'isActive', 'onlyWomen', 'onlyMen', 'onlyPhone', 'plan'],
+		select: ['id', 'documentId', 'isActive', 'onlyWomen', 'onlyMen', 'onlyPhone', 'plan', 'stripeAccountId', 'paymentsEnabled'],
 		populate: {
 			users_permissions_user: { select: ['id'] },
+			reason: true,
+			priceRange: true,
 			holidays: true,
 			...Object.fromEntries(WEEK_DAYS.map((d) => [d, true])),
 		},
@@ -247,6 +256,18 @@ const slotTaken = async (strapi, doctorId, start, duration) => {
 	});
 };
 
+/** Remboursement avant annulation ; null (et réponse d'erreur) si Stripe refuse */
+const refundBeforeCancel = async (ctx, { byPatient }) => {
+	try {
+		return await payments.refundOnCancel(strapi, ctx.params.id, { byPatient });
+	} catch (error) {
+		strapi.log.error(`Paiements : remboursement de ${ctx.params.id} impossible (${error.message})`);
+		ctx.status = 502;
+		ctx.body = { error: { status: 502, message: 'Le remboursement n’a pas pu être effectué. Réessayez ou contactez le support.' } };
+		return null;
+	}
+};
+
 module.exports = createCoreController(UID, ({ strapi }) => ({
 	/**
 	 * GET /appointments/busy?doctor=<id|documentId>&date=AAAA-MM-JJ (date facultative)
@@ -296,6 +317,7 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 				$and: [
 					sanitizedQuery.filters || {},
 					forcePatient ? { patient: { id: user.id } } : ownedBy(user),
+					NOT_PENDING,
 				],
 			},
 		});
@@ -333,6 +355,7 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		const data = { ...(body.data || {}) };
 		const forConnectedPatient = 'patient' in data;
 		delete data.patient;
+		for (const field of PAYMENT_INPUT) delete data[field];
 
 		const doctor = await findDoctor(strapi, data.doctor);
 		if (!doctor) return ctx.badRequest('Praticien introuvable.');
@@ -375,6 +398,9 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 				: ctx.badRequest('Ce créneau vient d’être réservé. Choisissez-en un autre.');
 		}
 
+		// Réservation en ligne d'un patient : payée au prix du motif choisi, si le praticien encaisse en ligne
+		const price = inOwnAgenda ? null : payments.priceFor(doctor, data.reason);
+
 		ctx.request.body = { ...body, data };
 		await this.validateQuery(ctx);
 		const sanitizedQuery = await this.sanitizeQuery(ctx);
@@ -390,6 +416,7 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 					...(forConnectedPatient && !inOwnAgenda && { patient: user.id }),
 					// Verrou en base : une seconde réservation simultanée du même créneau est refusée
 					slotKey: slotKeyFor(doctor.id, start),
+					...(price && payments.pendingPaymentData(price, doctor)),
 				},
 			});
 		} catch (error) {
@@ -400,15 +427,60 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 			}
 			throw error;
 		}
+		let payment = null;
+		if (price) {
+			try {
+				payment = await payments.startPayment(strapi, entity, { doctor, user });
+			} catch (error) {
+				// Paiement impossible à préparer : la réservation est retirée, le créneau libéré
+				strapi.log.error(`Paiements : réservation ${entity.documentId} sans paiement (${error.message})`);
+				await strapi.db.query(UID).delete({ where: { id: entity.id } });
+				ctx.status = 502;
+				ctx.body = { error: { status: 502, message: 'Le paiement n’a pas pu être préparé. Réessayez dans un instant.' } };
+				return;
+			}
+		}
 		const sanitizedEntity = await this.sanitizeOutput(entity, ctx);
 		ctx.status = 201;
-		return this.transformResponse(sanitizedEntity);
+		return this.transformResponse(sanitizedEntity, payment ? { payment } : undefined);
+	},
+
+	/** POST /appointments/:id/confirm-payment : le patient a payé dans le formulaire */
+	async confirmPayment(ctx) {
+		const user = ctx.state.user;
+		if (!user) return ctx.unauthorized();
+		try {
+			ctx.body = { data: await payments.confirmPayment(strapi, user, ctx.params.id) };
+		} catch (error) {
+			ctx.status = error.status || 502;
+			ctx.body = { error: { status: ctx.status, message: error.expose ? error.message : 'Le paiement n’a pas pu être vérifié.' } };
+		}
+	},
+
+	/** POST /appointments/:id/abandon : paiement fermé sans payer, le créneau est libéré */
+	async abandonPayment(ctx) {
+		const user = ctx.state.user;
+		if (!user) return ctx.unauthorized();
+		try {
+			await payments.abandonPayment(strapi, user, ctx.params.id);
+		} catch (error) {
+			strapi.log.error(`Paiements : abandon de ${ctx.params.id} (${error.message})`);
+		}
+		ctx.status = 204;
 	},
 
 	/** PUT /appointments/:id : patient ou praticien du rendez-vous, chacun limité à ses champs. */
 	async update(ctx) {
 		const user = ctx.state.user;
-		if (isAdmin(user)) return super.update(ctx);
+		if (isAdmin(user)) {
+			const adminData = ctx.request.body?.data || {};
+			if (adminData.isCancelled === true) {
+				const refund = await refundBeforeCancel(ctx, { byPatient: adminData.isCancelledByPatient === true });
+				if (!refund) return;
+				ctx.request.body = { ...ctx.request.body, data: { ...adminData, ...refund } };
+			}
+			return super.update(ctx);
+		}
 		if (!user) return ctx.unauthorized();
 
 		const role = await roleOn(strapi, ctx.params.id, user);
@@ -420,6 +492,17 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		if (!Object.keys(data).length) return ctx.badRequest('Aucune modification autorisée dans cette demande.');
 		// L'auteur de l'annulation est fixé par le serveur (il détermine qui est prévenu)
 		if (data.isCancelled === true) data.isCancelledByPatient = role === 'patient';
+		// « Payé » se coche pour un règlement au cabinet, pas pour une consultation payée en ligne
+		if ('isPaid' in data) {
+			const current = await strapi.db.query(UID).findOne({ where: { documentId: ctx.params.id }, select: ['paymentStatus'] });
+			if (current?.paymentStatus && current.paymentStatus !== 'none') delete data.isPaid;
+		}
+		// Remboursement éventuel avant l'annulation (règle des 24 h pour le patient)
+		if (data.isCancelled === true) {
+			const refund = await refundBeforeCancel(ctx, { byPatient: role === 'patient' });
+			if (!refund) return;
+			Object.assign(data, refund);
+		}
 
 		ctx.request.body = { ...body, data };
 		return super.update(ctx);

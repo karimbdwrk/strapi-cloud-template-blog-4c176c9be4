@@ -61,6 +61,7 @@ const euros = (value) => {
  * → [libellé, valeur] ou null
  */
 const priceRowOf = (a) => {
+	if (a.paymentStatus === 'paid' && a.price) return ['Payé en ligne', euros(a.price)];
 	const reason = (a.doctor?.reason || []).find((r) => r.title === a.reason);
 	if (reason?.price != null && reason.price !== '') return ['Tarif', euros(reason.price)];
 

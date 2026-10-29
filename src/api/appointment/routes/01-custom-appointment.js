@@ -20,5 +20,17 @@ module.exports = {
 			handler: 'appointment.busy',
 			config: { auth: false },
 		},
+		{
+			// Paiement de la consultation : vérifié chez Stripe après le formulaire de carte
+			method: 'POST',
+			path: '/appointments/:id/confirm-payment',
+			handler: 'appointment.confirmPayment',
+		},
+		{
+			// Paiement fermé sans payer : le créneau est libéré
+			method: 'POST',
+			path: '/appointments/:id/abandon',
+			handler: 'appointment.abandonPayment',
+		},
 	],
 };
