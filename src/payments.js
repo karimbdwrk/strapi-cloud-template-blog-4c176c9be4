@@ -103,10 +103,21 @@ const pendingPaymentData = (price, doctor) => ({
 /** Paiement du rendez-vous qui vient d'être créé → de quoi afficher le formulaire de carte */
 const startPayment = async (strapi, appointment, { doctor, user }) => {
 	const amount = cents(appointment.price);
+	// Client du patient sur le compte du praticien : la facture de la consultation lui sera adressée
+	const customer = await stripe().customers.create(
+		{
+			name: [user.firstname, user.lastname].filter(Boolean).join(' ') || user.username || undefined,
+			email: user.email || undefined,
+			preferred_locales: ['fr-FR'],
+			metadata: { meyanaUserId: String(user.id) },
+		},
+		{ ...onAccount(doctor.stripeAccountId), idempotencyKey: `meyana-customer-${appointment.documentId}` }
+	);
 	const intent = await stripe().paymentIntents.create(
 		{
 			amount,
 			currency: 'eur',
+			customer: customer.id,
 			application_fee_amount: commissionOf(amount),
 			payment_method_types: PAYMENT_METHOD_TYPES,
 			description: `Consultation du ${formatWhen(appointment.datetime)}`,
@@ -153,7 +164,10 @@ const markPaid = async (strapi, appointment) => {
 		});
 		return appointment;
 	}
-	// Facture émise avant la confirmation : son lien part dans l'email de réservation du patient
+	// Facture émise avant la confirmation : son lien part dans l'email de réservation du patient.
+	// La date de paiement est fixée d'abord : une reprise de la facture refait exactement la même demande.
+	const paidAt = new Date();
+	await strapi.db.query(APPOINTMENT).update({ where: { id: appointment.id }, data: { paidAt } });
 	let invoiceFields = {};
 	try {
 		invoiceFields = (await invoices.issueConsultationInvoice(strapi, appointment.id)) || {};
@@ -162,7 +176,7 @@ const markPaid = async (strapi, appointment) => {
 	}
 	await strapi.documents(APPOINTMENT).update({
 		documentId: appointment.documentId,
-		data: { paymentStatus: 'paid', isPaid: true, paidAt: new Date(), pendingUntil: null, ...invoiceFields },
+		data: { paymentStatus: 'paid', isPaid: true, paidAt, pendingUntil: null, ...invoiceFields },
 	});
 	return { ...appointment, ...invoiceFields, paymentStatus: 'paid' };
 };

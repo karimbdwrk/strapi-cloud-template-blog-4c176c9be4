@@ -51,6 +51,9 @@ module.exports = {
     // Indicateurs /admin : permission du rôle SuperAdmin (Strapi vérifie le rôle du compte connecté),
     // le contrôleur revérifie le rôle
     await ensurePermission(strapi, { name: "SuperAdmin" }, "api::admin-stats.admin-stats.overview");
+    await ensurePermission(strapi, { name: "SuperAdmin" }, "api::admin-payment.admin-payment.overview");
+    // L'admin ouvre les factures de consultation depuis sa page Paiements
+    await ensurePermission(strapi, { name: "SuperAdmin" }, "api::appointment.appointment.invoiceLinks");
     // Signalements : chacun crée et suit les siens (le contrôleur filtre), l'admin traite
     for (const action of ["create", "find", "findOne"]) {
       await ensurePermission(strapi, { type: "authenticated" }, `api::reporting.reporting.${action}`);

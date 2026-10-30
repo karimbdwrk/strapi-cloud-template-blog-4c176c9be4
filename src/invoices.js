@@ -136,6 +136,10 @@ const saveBillingInfo = async (strapi, doctor, input = {}) => {
 	await strapi.db.query(DOCTOR).update({ where: { id: doctor.id }, data });
 	const updated = { ...doctor, ...data };
 	await Promise.all([syncCustomer(updated), syncAccountProfile(updated)]);
+	// Consultations déjà payées sans facture : émises tout de suite (sans attendre la tâche planifiée)
+	issueMissingInvoices(strapi, { doctorId: doctor.id }).catch((error) =>
+		strapi.log.error(`Factures : rattrapage du praticien ${doctor.documentId} impossible (${error.message})`)
+	);
 	return billingInfoOf(updated);
 };
 
@@ -180,15 +184,19 @@ const issueConsultationInvoice = async (strapi, appointmentId) => {
 	const doctorName = fullName(a.doctor);
 	const patientName = fullName(a.patient) || a.patient?.username || 'Patient';
 
-	const customer = await stripe().customers.create(
-		{
-			name: patientName,
-			email: a.patient?.email || undefined,
-			preferred_locales: ['fr-FR'],
-			metadata: { meyanaUserId: String(a.patient?.id ?? '') },
-		},
-		key('customer')
-	);
+	// Client créé au paiement (le paiement ne se rattache qu'à une facture du même client) ; sinon créé ici
+	const intent = await stripe().paymentIntents.retrieve(a.paymentIntentId, {}, on);
+	const customer = intent.customer
+		? { id: typeof intent.customer === 'string' ? intent.customer : intent.customer.id }
+		: await stripe().customers.create(
+				{
+					name: patientName,
+					email: a.patient?.email || undefined,
+					preferred_locales: ['fr-FR'],
+					metadata: { meyanaUserId: String(a.patient?.id ?? '') },
+				},
+				key('customer')
+		  );
 	const created = await stripe().invoices.create(
 		{
 			customer: customer.id,
@@ -265,11 +273,15 @@ const lateInvoiceEmail = async (strapi, appointmentId, fields) => {
 	});
 };
 
-/** Tâche planifiée : factures et avoirs restés en attente (erreur passagère, informations complétées depuis) */
-const issueMissingInvoices = async (strapi) => {
+/**
+ * Tâche planifiée : factures et avoirs restés en attente (erreur passagère, informations complétées
+ * depuis). `doctorId` : limité à un praticien (lancé dès qu'il enregistre ses informations).
+ */
+const issueMissingInvoices = async (strapi, { doctorId } = {}) => {
 	const since = new Date(Date.now() - 30 * 86400000);
+	const ofDoctor = doctorId ? { doctor: { id: doctorId } } : {};
 	const missing = await strapi.db.query(APPOINTMENT).findMany({
-		where: { paymentStatus: { $in: ['paid', 'refunded'] }, invoiceId: { $null: true }, paidAt: { $gte: since } },
+		where: { paymentStatus: { $in: ['paid', 'refunded'] }, invoiceId: { $null: true }, paidAt: { $gte: since }, ...ofDoctor },
 		select: ['id', 'documentId', 'paymentStatus', 'price'],
 		limit: 20,
 	});
@@ -289,7 +301,13 @@ const issueMissingInvoices = async (strapi) => {
 		}
 	}
 	const uncredited = await strapi.db.query(APPOINTMENT).findMany({
-		where: { paymentStatus: 'refunded', invoiceId: { $notNull: true }, creditNoteUrl: { $null: true }, refundedAt: { $gte: since } },
+		where: {
+			paymentStatus: 'refunded',
+			invoiceId: { $notNull: true },
+			creditNoteUrl: { $null: true },
+			refundedAt: { $gte: since },
+			...ofDoctor,
+		},
 		select: ['id', 'documentId', 'invoiceId'],
 		limit: 20,
 	});
@@ -422,7 +440,7 @@ const listInvoices = async (strapi, doctor) => {
 
 /**
  * Liens à jour vers la facture d'une consultation (page en ligne, PDF) et son avoir éventuel :
- * relus chez Stripe à chaque ouverture. Réservé au patient et au praticien du rendez-vous.
+ * relus chez Stripe à chaque ouverture. Réservé au patient et au praticien du rendez-vous, et à l'admin.
  */
 const invoiceLinks = async (strapi, user, documentId) => {
 	const a = await strapi.db.query(APPOINTMENT).findOne({
@@ -433,7 +451,8 @@ const invoiceLinks = async (strapi, user, documentId) => {
 			doctor: { select: ['id'], populate: { users_permissions_user: { select: ['id'] } } },
 		},
 	});
-	const allowed = a && (a.patient?.id === user.id || a.doctor?.users_permissions_user?.id === user.id);
+	const isAdmin = user.role?.name === 'SuperAdmin';
+	const allowed = a && (isAdmin || a.patient?.id === user.id || a.doctor?.users_permissions_user?.id === user.id);
 	if (!allowed) throw httpError(404, 'Facture introuvable.');
 	if (!a.invoiceId) throw httpError(404, 'La facture de cette consultation n’est pas encore disponible.');
 	const on = { stripeAccount: a.paymentAccountId };
