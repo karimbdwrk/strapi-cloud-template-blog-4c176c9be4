@@ -232,6 +232,39 @@ const issueConsultationInvoice = async (strapi, appointmentId) => {
 	return { invoiceId: invoice.id, invoiceNumber: invoice.number, invoiceUrl: invoice.hosted_invoice_url };
 };
 
+/** Le patient reçoit sa facture quand elle n'a pas pu partir avec la confirmation du rendez-vous */
+const lateInvoiceEmail = async (strapi, appointmentId, fields) => {
+	const { renderEmail } = require('./notifications/email');
+	const a = await strapi.db.query(APPOINTMENT).findOne({
+		where: { id: appointmentId },
+		select: ['UUID', 'datetime', 'price'],
+		populate: { patient: { select: ['id', 'firstname'] }, doctor: { select: ['firstname', 'lastname'] } },
+	});
+	if (!a?.patient) return;
+	await strapi.service('api::notification.notification').emailUser({
+		recipient: a.patient.id,
+		category: 'account',
+		email: {
+			subject: `Votre facture · consultation du ${longDate(a.datetime)}`,
+			...renderEmail({
+				title: 'Votre facture est disponible',
+				paragraphs: [
+					a.patient.firstname ? `Bonjour ${a.patient.firstname},` : 'Bonjour,',
+					`La facture de votre consultation avec ${fullName(a.doctor) || 'votre praticien'} est disponible. Vous la retrouvez à tout moment dans « Mes paiements ».`,
+				],
+				details: [
+					['Consultation', longDate(a.datetime)],
+					['Montant payé', euros(a.price)],
+					['Facture', fields.invoiceNumber],
+				],
+				secondary: { url: fields.invoiceUrl, label: 'Voir ma facture' },
+				link: '/dashboard/mes-paiements',
+				cta: 'Mes paiements',
+			}),
+		},
+	});
+};
+
 /** Tâche planifiée : factures et avoirs restés en attente (erreur passagère, informations complétées depuis) */
 const issueMissingInvoices = async (strapi) => {
 	const since = new Date(Date.now() - 30 * 86400000);
@@ -247,6 +280,9 @@ const issueMissingInvoices = async (strapi) => {
 			await strapi.db.query(APPOINTMENT).update({ where: { id: appointment.id }, data: fields });
 			if (appointment.paymentStatus === 'refunded') {
 				await creditConsultationInvoice(strapi, { ...appointment, ...fields });
+			} else {
+				// Facture émise après la confirmation (praticien sans informations de facturation à ce moment-là)
+				await lateInvoiceEmail(strapi, appointment.id, fields);
 			}
 		} catch (error) {
 			strapi.log.error(`Factures : consultation ${appointment.documentId} non facturée (${error.message})`);
@@ -363,7 +399,7 @@ const listInvoices = async (strapi, doctor) => {
 	}
 	const appointments = await strapi.db.query(APPOINTMENT).findMany({
 		where: { doctor: { id: doctor.id }, invoiceId: { $notNull: true } },
-		select: ['datetime', 'price', 'paidAt', 'paymentStatus', 'invoiceNumber', 'invoiceUrl', 'creditNoteUrl'],
+		select: ['documentId', 'datetime', 'price', 'paidAt', 'paymentStatus', 'invoiceNumber', 'invoiceUrl', 'creditNoteUrl'],
 		populate: { patient: { select: ['firstname', 'lastname', 'username'] } },
 		orderBy: { paidAt: 'desc' },
 		limit: 300,
@@ -371,6 +407,7 @@ const listInvoices = async (strapi, doctor) => {
 	return {
 		meyana,
 		consultations: appointments.map((a) => ({
+			documentId: a.documentId,
 			number: a.invoiceNumber,
 			date: a.paidAt,
 			consultationDate: a.datetime,
@@ -381,6 +418,56 @@ const listInvoices = async (strapi, doctor) => {
 			creditNoteUrl: a.creditNoteUrl,
 		})),
 	};
+};
+
+/**
+ * Liens à jour vers la facture d'une consultation (page en ligne, PDF) et son avoir éventuel :
+ * relus chez Stripe à chaque ouverture. Réservé au patient et au praticien du rendez-vous.
+ */
+const invoiceLinks = async (strapi, user, documentId) => {
+	const a = await strapi.db.query(APPOINTMENT).findOne({
+		where: { documentId },
+		select: ['id', 'invoiceId', 'paymentAccountId'],
+		populate: {
+			patient: { select: ['id'] },
+			doctor: { select: ['id'], populate: { users_permissions_user: { select: ['id'] } } },
+		},
+	});
+	const allowed = a && (a.patient?.id === user.id || a.doctor?.users_permissions_user?.id === user.id);
+	if (!allowed) throw httpError(404, 'Facture introuvable.');
+	if (!a.invoiceId) throw httpError(404, 'La facture de cette consultation n’est pas encore disponible.');
+	const on = { stripeAccount: a.paymentAccountId };
+	const invoice = await stripe().invoices.retrieve(a.invoiceId, {}, on);
+	const { data: creditNotes } = await stripe().creditNotes.list({ invoice: a.invoiceId, limit: 1 }, on);
+	return {
+		number: invoice.number,
+		url: invoice.hosted_invoice_url,
+		pdf: invoice.invoice_pdf,
+		creditNotePdf: creditNotes[0]?.pdf || null,
+	};
+};
+
+/** Page « Mes paiements » du patient : consultations payées en ligne, remboursées comprises */
+const patientPayments = async (strapi, user) => {
+	const appointments = await strapi.db.query(APPOINTMENT).findMany({
+		where: { patient: { id: user.id }, paymentStatus: { $in: ['paid', 'refunded'] } },
+		select: ['documentId', 'UUID', 'datetime', 'reason', 'price', 'paidAt', 'refundedAt', 'paymentStatus', 'invoiceId', 'invoiceNumber'],
+		populate: { doctor: { select: ['firstname', 'lastname'] } },
+		orderBy: { paidAt: 'desc' },
+		limit: 300,
+	});
+	return appointments.map((a) => ({
+		documentId: a.documentId,
+		uuid: a.UUID,
+		datetime: a.datetime,
+		reason: a.reason,
+		doctor: fullName(a.doctor),
+		amount: Number(a.price),
+		paidAt: a.paidAt,
+		refundedAt: a.refundedAt,
+		refunded: a.paymentStatus === 'refunded',
+		invoiceNumber: a.invoiceId ? a.invoiceNumber : null,
+	}));
 };
 
 /** Facture d'abonnement payée (webhook invoice.paid) : email au praticien avec le lien */
@@ -426,5 +513,7 @@ module.exports = {
 	creditConsultationInvoice,
 	issueCommissionInvoice,
 	listInvoices,
+	invoiceLinks,
+	patientPayments,
 	subscriptionInvoiceEmail,
 };

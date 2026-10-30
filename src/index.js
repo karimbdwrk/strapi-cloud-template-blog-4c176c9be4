@@ -82,7 +82,7 @@ module.exports = {
       await ensurePermission(strapi, { name: "SuperAdmin" }, `api::billing.billing.${action}`);
     }
     // Paiement des consultations : le patient confirme ou abandonne son paiement, le praticien gère ses versements
-    for (const action of ["confirmPayment", "abandonPayment"]) {
+    for (const action of ["confirmPayment", "abandonPayment", "payments", "invoiceLinks"]) {
       await ensurePermission(strapi, { type: "authenticated" }, `api::appointment.appointment.${action}`);
     }
     for (const action of ["mine", "onboarding", "dashboard", "invoices", "billingInfo"]) {

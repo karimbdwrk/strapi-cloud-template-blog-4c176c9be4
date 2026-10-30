@@ -21,6 +21,7 @@
 const { createCoreController } = require('@strapi/strapi').factories;
 const { slotKeyFor, isUniqueViolation } = require('../../../appointment-slots');
 const payments = require('../../../payments');
+const invoices = require('../../../invoices');
 
 const UID = 'api::appointment.appointment';
 const DOCTOR_UID = 'api::doctor.doctor';
@@ -454,6 +455,25 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 		} catch (error) {
 			ctx.status = error.status || 502;
 			ctx.body = { error: { status: ctx.status, message: error.expose ? error.message : 'Le paiement n’a pas pu être vérifié.' } };
+		}
+	},
+
+	/** GET /appointments/payments : consultations payées en ligne par le patient connecté */
+	async payments(ctx) {
+		const user = ctx.state.user;
+		if (!user) return ctx.unauthorized();
+		ctx.body = { data: await invoices.patientPayments(strapi, user) };
+	},
+
+	/** GET /appointments/:id/invoice : liens vers la facture (page en ligne, PDF) et l'avoir */
+	async invoiceLinks(ctx) {
+		const user = ctx.state.user;
+		if (!user) return ctx.unauthorized();
+		try {
+			ctx.body = { data: await invoices.invoiceLinks(strapi, user, ctx.params.id) };
+		} catch (error) {
+			ctx.status = error.status || 502;
+			ctx.body = { error: { status: ctx.status, message: error.expose ? error.message : 'La facture n’a pas pu être ouverte.' } };
 		}
 	},
 
