@@ -244,6 +244,8 @@ const ensureCustomer = async (strapi, doctor, user) => {
 		email: user.email,
 		name: [doctor.firstname, doctor.lastname].filter(Boolean).join(' ') || undefined,
 		preferred_locales: ['fr'],
+		// Mentions légales et TVA de Meyana sur les factures d'abonnement et de commission (chargé ici : invoices.js dépend de ce module)
+		invoice_settings: { footer: require('./invoices').meyanaFooter() },
 		metadata: { doctorDocumentId: doctor.documentId },
 	});
 	return saveDoctor(strapi, doctor, { stripeCustomerId: customer.id });
@@ -402,6 +404,21 @@ const expireOffers = async (strapi) => {
 	}
 };
 
+/** Abonnement payé : le praticien reçoit sa facture par email */
+const sendSubscriptionInvoice = async (strapi, invoice) => {
+	const doctor = await strapi.db.query(DOCTOR).findOne({
+		where: { stripeCustomerId: invoice.customer },
+		select: ['id', 'firstname'],
+		populate: { users_permissions_user: { select: ['id'] } },
+	});
+	if (!doctor?.users_permissions_user) return;
+	await strapi.service('api::notification.notification').emailUser({
+		recipient: doctor.users_permissions_user.id,
+		category: 'account',
+		email: require('./invoices').subscriptionInvoiceEmail(doctor, invoice),
+	});
+};
+
 /** Webhook Stripe : corps brut vérifié avec STRIPE_WEBHOOK_SECRET */
 const handleWebhook = async (strapi, rawBody, signature) => {
 	// Deux destinations possibles chez Stripe : le compte Meyana et les comptes des praticiens
@@ -437,8 +454,11 @@ const handleWebhook = async (strapi, rawBody, signature) => {
 			break;
 		case 'invoice.paid':
 		case 'invoice.payment_failed': {
+			// Factures des comptes des praticiens (consultations) : rien à synchroniser
+			if (event.account) break;
 			const id = object.parent?.subscription_details?.subscription ?? object.subscription;
 			if (id) await syncSubscription(strapi, await stripe().subscriptions.retrieve(id));
+			if (id && event.type === 'invoice.paid' && object.amount_paid > 0) await sendSubscriptionInvoice(strapi, object);
 			break;
 		}
 		default:
@@ -450,6 +470,7 @@ module.exports = {
 	stripe,
 	httpError,
 	DOCTOR_FIELDS,
+	ensureCustomer,
 	setupBilling,
 	summary,
 	findDoctor,

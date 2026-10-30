@@ -25,6 +25,7 @@
  */
 
 const { stripe, httpError } = require('./billing');
+const invoices = require('./invoices');
 const { frontUrl, renderEmail } = require('./notifications/email');
 const { formatWhen } = require('./notifications/helpers');
 
@@ -48,8 +49,20 @@ const PAYMENT_FIELDS = [
 	'paymentIntentId',
 	'paymentAccountId',
 	'pendingUntil',
+	'invoiceId',
 ];
-const ACCOUNT_FIELDS = ['id', 'documentId', 'firstname', 'lastname', 'UUID', 'isActive', 'stripeAccountId', 'paymentsEnabled'];
+const ACCOUNT_FIELDS = [
+	'id',
+	'documentId',
+	'firstname',
+	'lastname',
+	'UUID',
+	'isActive',
+	'stripeAccountId',
+	'paymentsEnabled',
+	'stripeCustomerId',
+	...invoices.BILLING_FIELDS,
+];
 
 // Les virements sont déclenchés par Meyana (mondayPayouts), jamais automatiquement par Stripe
 const MANUAL_PAYOUTS = { settings: { payouts: { schedule: { interval: 'manual' } } } };
@@ -140,11 +153,18 @@ const markPaid = async (strapi, appointment) => {
 		});
 		return appointment;
 	}
+	// Facture émise avant la confirmation : son lien part dans l'email de réservation du patient
+	let invoiceFields = {};
+	try {
+		invoiceFields = (await invoices.issueConsultationInvoice(strapi, appointment.id)) || {};
+	} catch (error) {
+		strapi.log.error(`Factures : consultation ${appointment.documentId} non facturée (${error.message}), nouvel essai planifié`);
+	}
 	await strapi.documents(APPOINTMENT).update({
 		documentId: appointment.documentId,
-		data: { paymentStatus: 'paid', isPaid: true, paidAt: new Date(), pendingUntil: null },
+		data: { paymentStatus: 'paid', isPaid: true, paidAt: new Date(), pendingUntil: null, ...invoiceFields },
 	});
-	return { ...appointment, paymentStatus: 'paid' };
+	return { ...appointment, ...invoiceFields, paymentStatus: 'paid' };
 };
 
 /** Le patient revient du formulaire : le paiement est relu chez Stripe (sans attendre le webhook) */
@@ -233,6 +253,11 @@ const refundOnCancel = async (strapi, documentId, { byPatient }) => {
 	const hoursBefore = (new Date(appointment.datetime).getTime() - Date.now()) / 3600000;
 	if (byPatient && hoursBefore < REFUND_NOTICE_HOURS) return {};
 	await refund(appointment, 'refund');
+	try {
+		await invoices.creditConsultationInvoice(strapi, appointment);
+	} catch (error) {
+		strapi.log.error(`Factures : avoir de ${appointment.documentId} non émis (${error.message}), nouvel essai planifié`);
+	}
 	return { paymentStatus: 'refunded', refundedAt: new Date(), isPaid: false };
 };
 
@@ -414,6 +439,7 @@ const accountSummary = async (strapi, user) => {
 			actionRequired: (requirements.currently_due || []).length > 0 || (requirements.past_due || []).length > 0,
 		},
 		commissionRate: COMMISSION_RATE,
+		billing: invoices.billingInfoOf(doctor),
 		due: totalsOf(due),
 		toClose: {
 			...totalsOf(toClose),
@@ -457,6 +483,7 @@ const payOutDoctor = async (strapi, doctor, appointments, now) => {
 		paidOut.push(a);
 	}
 	const amount = paidOut.reduce((s, a) => s + netCents(a), 0);
+	let commissionInvoiceUrl = null;
 	if (amount > 0) {
 		const payout = await stripe().payouts.create(
 			{
@@ -471,8 +498,20 @@ const payOutDoctor = async (strapi, doctor, appointments, now) => {
 			where: { id: { $in: paidOut.map((a) => a.id) } },
 			data: { paidOutAt: now, payoutId: payout.id },
 		});
+		try {
+			commissionInvoiceUrl = await invoices.issueCommissionInvoice(
+				strapi,
+				doctor,
+				doctor.users_permissions_user,
+				payout,
+				paidOut.map((a) => ({ datetime: a.datetime, price: a.price, commission: commissionOf(cents(a.price)) })),
+				COMMISSION_RATE * 100
+			);
+		} catch (error) {
+			strapi.log.error(`Factures : commission du virement ${payout.id} non facturée (${error.message})`);
+		}
 	}
-	return { paidOut, carriedOver: due.slice(paidOut.length), toClose, upcoming };
+	return { paidOut, carriedOver: due.slice(paidOut.length), toClose, upcoming, commissionInvoiceUrl };
 };
 
 const plural = (n, word) => `${n} ${word}${n > 1 ? 's' : ''}`;
@@ -485,8 +524,8 @@ const mondayPayouts = async (strapi) => {
 		select: PAYOUT_FIELDS,
 		populate: {
 			doctor: {
-				select: ['id', 'documentId', 'firstname', 'stripeAccountId'],
-				populate: { users_permissions_user: { select: ['id'] } },
+				select: ['id', 'documentId', 'firstname', 'lastname', 'stripeAccountId', 'stripeCustomerId', ...invoices.BILLING_FIELDS],
+				populate: { users_permissions_user: { select: ['id', 'email'] } },
 			},
 		},
 		limit: 5000,
@@ -507,7 +546,7 @@ const mondayPayouts = async (strapi) => {
 			strapi.log.error(`Versement impossible pour le praticien ${doctor.documentId} : ${error.message}`);
 			continue;
 		}
-		const { paidOut, carriedOver, toClose, upcoming } = result;
+		const { paidOut, carriedOver, toClose, upcoming, commissionInvoiceUrl } = result;
 		if (!paidOut.length && !carriedOver.length && !toClose.length) continue;
 		const t = totalsOf(paidOut);
 		const notes = [];
@@ -551,6 +590,7 @@ const mondayPayouts = async (strapi) => {
 						  ]
 						: [],
 					notes,
+					secondary: commissionInvoiceUrl ? { url: commissionInvoiceUrl, label: 'Voir la facture de commission' } : null,
 					link: '/dashboard/paiements',
 					cta: 'Voir mes paiements',
 				}),
@@ -581,6 +621,7 @@ module.exports = {
 	expirePending,
 	refundOnCancel,
 	syncAccount,
+	doctorOfUser,
 	onboardingLink,
 	dashboardLink,
 	accountSummary,

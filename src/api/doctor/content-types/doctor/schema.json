@@ -295,6 +295,31 @@
     "paymentsEnabled": {
       "type": "boolean",
       "default": false
+    },
+    "siret": {
+      "type": "string",
+      "private": true
+    },
+    "vatRegime": {
+      "type": "enumeration",
+      "enum": [
+        "exempt_health",
+        "franchise",
+        "vat"
+      ],
+      "private": true
+    },
+    "vatNumber": {
+      "type": "string",
+      "private": true
+    },
+    "billingAddress": {
+      "type": "json",
+      "private": true
+    },
+    "hasBillingInfo": {
+      "type": "boolean",
+      "default": false
     }
   }
 }

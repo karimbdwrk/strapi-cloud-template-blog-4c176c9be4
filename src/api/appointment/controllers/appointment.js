@@ -44,7 +44,7 @@ const NOT_CANCELLED = { $or: [{ isCancelled: false }, { isCancelled: { $null: tr
 // Réservations non encore payées : invisibles dans les listes (elles bloquent seulement le créneau)
 const NOT_PENDING = { $or: [{ paymentStatus: { $ne: 'pending' } }, { paymentStatus: { $null: true } }] };
 // Champs de paiement : fixés par le serveur uniquement
-const PAYMENT_INPUT = ['price', 'paymentStatus', 'paidAt', 'refundedAt', 'paidOutAt', 'isPaid'];
+const PAYMENT_INPUT = ['price', 'paymentStatus', 'paidAt', 'refundedAt', 'paidOutAt', 'isPaid', 'invoiceNumber', 'invoiceUrl', 'creditNoteUrl'];
 
 // populate=* ou toute demande qui inclut la relation patient (patient, patient.user_record…)
 const wantsPatient = (populate) =>

@@ -1,6 +1,7 @@
 'use strict';
 
 const payments = require('../../../payments');
+const invoices = require('../../../invoices');
 
 /** Erreurs prévues renvoyées telles quelles, les autres journalisées */
 const run = async (ctx, action) => {
@@ -19,6 +20,12 @@ const run = async (ctx, action) => {
 	}
 };
 
+const doctorOf = async (user) => {
+	const doctor = await payments.doctorOfUser(strapi, user);
+	if (!doctor) throw Object.assign(new Error('Réservé aux praticiens.'), { status: 403, expose: true });
+	return doctor;
+};
+
 module.exports = {
 	async mine(ctx) {
 		await run(ctx, async (user) => ({ data: await payments.accountSummary(strapi, user) }));
@@ -28,5 +35,13 @@ module.exports = {
 	},
 	async dashboard(ctx) {
 		await run(ctx, async (user) => ({ url: await payments.dashboardLink(strapi, user) }));
+	},
+	async invoices(ctx) {
+		await run(ctx, async (user) => ({ data: await invoices.listInvoices(strapi, await doctorOf(user)) }));
+	},
+	async billingInfo(ctx) {
+		await run(ctx, async (user) => ({
+			data: await invoices.saveBillingInfo(strapi, await doctorOf(user), ctx.request.body?.data),
+		}));
 	},
 };

@@ -13,6 +13,7 @@
 const { createCoreController } = require('@strapi/strapi').factories;
 const { currentCharterVersion } = require('../../../charter');
 const payments = require('../../../payments');
+const invoices = require('../../../invoices');
 
 const UID = 'api::doctor.doctor';
 const USER_UID = 'plugin::users-permissions.user';
@@ -44,6 +45,12 @@ const PROTECTED_FIELDS = [
 	// Paiement des consultations : géré par src/payments.js
 	'stripeAccountId',
 	'paymentsEnabled',
+	// Informations de facturation : PUT /payouts/billing-info
+	'siret',
+	'vatRegime',
+	'vatNumber',
+	'billingAddress',
+	'hasBillingInfo',
 ];
 
 /**
@@ -115,12 +122,15 @@ module.exports = createCoreController(UID, ({ strapi }) => ({
 			if (ctx.request.body?.data?.isActive === true) {
 				const doctor = await strapi.db.query(UID).findOne({
 					where: { documentId: ctx.params.id },
-					select: ['id', 'documentId', 'isActive', 'validatedAt', 'stripeAccountId', 'paymentsEnabled'],
+					select: ['id', 'documentId', 'isActive', 'validatedAt', 'stripeAccountId', 'paymentsEnabled', ...invoices.BILLING_FIELDS],
 				});
 				if (doctor && !doctor.isActive && !doctor.validatedAt) {
 					const synced = await payments.syncAccount(strapi, doctor).catch(() => doctor);
 					if (!synced.paymentsEnabled) {
 						return ctx.badRequest('Ce praticien doit d’abord activer ses paiements (formulaire de notre prestataire de paiement).');
+					}
+					if (!invoices.billingComplete(doctor)) {
+						return ctx.badRequest('Ce praticien doit d’abord renseigner ses informations de facturation (SIRET, TVA, adresse).');
 					}
 				}
 			}

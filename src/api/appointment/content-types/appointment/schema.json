@@ -291,6 +291,19 @@
     "payoutId": {
       "type": "string",
       "private": true
+    },
+    "invoiceId": {
+      "type": "string",
+      "private": true
+    },
+    "invoiceNumber": {
+      "type": "string"
+    },
+    "invoiceUrl": {
+      "type": "string"
+    },
+    "creditNoteUrl": {
+      "type": "string"
     }
   }
 }

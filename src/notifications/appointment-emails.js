@@ -151,6 +151,7 @@ const patientBookedEmail = (a) => {
 		],
 		link: `/appointment/${a.UUID}`,
 		cta: 'Voir mon rendez-vous',
+		secondary: a.invoiceUrl ? { url: a.invoiceUrl, label: 'Voir ma facture' } : null,
 		notes: [
 			a.isOnline
 				? 'Le lien de la visio apparaîtra sur la page du rendez-vous : vous recevrez un email dès que votre praticien l’aura ajouté.'

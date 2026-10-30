@@ -3,6 +3,7 @@
 const { purge } = require('../src/audience');
 const { expireOffers } = require('../src/billing');
 const { expirePending, mondayPayouts } = require('../src/payments');
+const { issueMissingInvoices } = require('../src/invoices');
 
 /** Tâches planifiées (heure de Paris) */
 module.exports = {
@@ -21,7 +22,12 @@ module.exports = {
 		task: ({ strapi }) => expirePending(strapi),
 		options: { rule: '*/5 * * * *', tz: 'Europe/Paris' },
 	},
-	// Consultations : virement des consultations passées et récapitulatif aux praticiens
+	// Consultations : factures et avoirs restés en attente
+	issueMissingInvoices: {
+		task: ({ strapi }) => issueMissingInvoices(strapi),
+		options: { rule: '2-59/10 * * * *', tz: 'Europe/Paris' },
+	},
+	// Consultations : virement des consultations clôturées et récapitulatif aux praticiens
 	mondayPayouts: {
 		task: ({ strapi }) => mondayPayouts(strapi),
 		options: { rule: '0 8 * * 1', tz: 'Europe/Paris' },

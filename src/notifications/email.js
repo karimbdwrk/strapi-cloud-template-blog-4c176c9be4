@@ -96,9 +96,10 @@ const frontUrl = () => (process.env.FRONT_URL || 'http://localhost:3010').replac
  * Gabarit des emails Meyana.
  * Notifications : { type, title, body, link }.
  * Emails détaillés : { title, paragraphs: [...], details: [[libellé, valeur]], notes: [...],
- *                     link, cta, footer } (bloc récapitulatif, consignes, bouton et pied sur mesure).
+ *                     link, cta, secondary: { url, label }, footer } (bloc récapitulatif, consignes,
+ *                     bouton, lien secondaire vers une adresse complète et pied sur mesure).
  */
-const renderEmail = ({ type, title, body, paragraphs, details, notes, link, cta: ctaText, footer }) => {
+const renderEmail = ({ type, title, body, paragraphs, details, notes, link, cta: ctaText, secondary, footer }) => {
 	const url = link ? `${frontUrl()}${link}` : `${frontUrl()}/dashboard`;
 	const cta = ctaText || ctaLabel(type || '');
 	const lines = paragraphs || (body ? [body] : []);
@@ -137,6 +138,7 @@ ${lines
 	.join('\n')}
 ${detailsHtml}
 <a href="${escapeHtml(url)}" style="display:inline-block;background:#1e352f;color:#fbf7f4;text-decoration:none;font-size:14px;font-weight:bold;padding:12px 22px;border-radius:999px">${escapeHtml(cta)}</a>
+${secondary?.url ? `<p style="margin:16px 0 0;font-size:14px"><a href="${escapeHtml(secondary.url)}" style="color:#4b5a43;font-weight:bold">${escapeHtml(secondary.label)}</a></p>` : ''}
 ${notesHtml}
 </td></tr>
 <tr><td style="padding:20px 4px 0;font-size:12px;line-height:1.6;color:#8a8a8a">
@@ -146,7 +148,7 @@ Meyana ne remplace pas un avis médical d’urgence : en cas d’urgence, compos
 </table></td></tr></table></body></html>`;
 	const detailsText = rows.length ? `${rows.map(([label, value]) => `${label} : ${String(value).replace(/\n/g, ', ')}`).join('\n')}\n\n` : '';
 	const notesText = notes?.length ? `\n\n${notes.map((note) => `- ${note}`).join('\n')}` : '';
-	const text = `${title}\n\n${lines.map((line) => `${line}\n\n`).join('')}${detailsText}${cta} : ${url}${notesText}${footer ? `\n\n${footer}` : ''}\n\n—\nMeyana. En cas d'urgence, composez le 15 ou le 112.`;
+	const text = `${title}\n\n${lines.map((line) => `${line}\n\n`).join('')}${detailsText}${cta} : ${url}${secondary?.url ? `\n${secondary.label} : ${secondary.url}` : ''}${notesText}${footer ? `\n\n${footer}` : ''}\n\n—\nMeyana. En cas d'urgence, composez le 15 ou le 112.`;
 	return { html, text };
 };
 

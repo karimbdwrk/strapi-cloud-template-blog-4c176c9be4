@@ -5,6 +5,7 @@ const { registerSlotRelease, ensureSlotIndex } = require("./appointment-slots");
 const { ensureCharter } = require("./charter");
 const { ensurePermission, revokePermission } = require("./permissions");
 const { setupBilling } = require("./billing");
+const { syncBillingCustomers } = require("./invoices");
 const { registerRatingScore, ensureDoctorRatings } = require("./rating-score");
 const { ensureProfessions } = require("./professions");
 const { registerKeywords, ensureKeywords } = require("./keywords");
@@ -84,10 +85,12 @@ module.exports = {
     for (const action of ["confirmPayment", "abandonPayment"]) {
       await ensurePermission(strapi, { type: "authenticated" }, `api::appointment.appointment.${action}`);
     }
-    for (const action of ["mine", "onboarding", "dashboard"]) {
+    for (const action of ["mine", "onboarding", "dashboard", "invoices", "billingInfo"]) {
       await ensurePermission(strapi, { type: "authenticated" }, `api::payout.payout.${action}`);
     }
     // Catalogue Stripe (formules Premium, portail client) créé s'il manque
     await setupBilling(strapi);
+    // Clients Stripe des praticiens : nom, adresse, SIRET et mention de TVA sur les factures Meyana
+    syncBillingCustomers(strapi).catch((error) => strapi.log.error(`Factures : clients non synchronisés (${error.message})`));
   },
 };
