@@ -5,7 +5,7 @@ const { registerSlotRelease, ensureSlotIndex } = require("./appointment-slots");
 const { ensureCharter } = require("./charter");
 const { ensurePermission, revokePermission } = require("./permissions");
 const { setupBilling } = require("./billing");
-const { syncBillingCustomers } = require("./invoices");
+const { syncBillingCustomers, refreshInvoiceLinks } = require("./invoices");
 const { registerRatingScore, ensureDoctorRatings } = require("./rating-score");
 const { ensureProfessions } = require("./professions");
 const { registerKeywords, ensureKeywords } = require("./keywords");
@@ -95,5 +95,6 @@ module.exports = {
     await setupBilling(strapi);
     // Clients Stripe des praticiens : nom, adresse, SIRET et mention de TVA sur les factures Meyana
     syncBillingCustomers(strapi).catch((error) => strapi.log.error(`Factures : clients non synchronisés (${error.message})`));
+    refreshInvoiceLinks(strapi).catch((error) => strapi.log.error(`Factures : liens non mis à jour (${error.message})`));
   },
 };

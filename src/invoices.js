@@ -1,7 +1,8 @@
 'use strict';
 
 /**
- * Factures (numérotées et hébergées par Stripe, consultables en ligne et en PDF)
+ * Factures (numérotées par Stripe, présentées aux couleurs de Meyana sur meyana.fr : voir
+ * src/invoice-documents.js pour la page en ligne et le PDF)
  *
  * - Abonnement : facture Meyana → praticien, générée par Stripe Billing à chaque échéance.
  * - Consultation : facture praticien → patient, établie par Meyana au nom et pour le compte du
@@ -10,14 +11,15 @@
  * - Commission : facture Meyana → praticien à chaque virement du lundi, pour la commission
  *   retenue sur les consultations versées.
  *
- * Le PDF Stripe garde la mention « à régler » : chaque facture porte donc une ligne
- * « Acquittée » (date et moyen de paiement), et sa page en ligne indique « Payée ».
+ * Chaque facture porte une ligne « Acquittée » (date et moyen de paiement), reprise sur la page
+ * et le PDF Meyana.
  * Identité de Meyana : nom et adresse dans le tableau de bord Stripe (informations publiques),
  * mentions légales (forme, capital, SIRET, RCS) dans MEYANA_LEGAL_MENTIONS, en pied de facture.
  */
 
 const { stripe, httpError, ensureCustomer, findDoctor } = require('./billing');
 const { TIME_ZONE } = require('./notifications/helpers');
+const { documentLinks, consultationRef, creditNoteRef, platformRef } = require('./invoice-documents');
 
 const APPOINTMENT = 'api::appointment.appointment';
 const DOCTOR = 'api::doctor.doctor';
@@ -237,7 +239,7 @@ const issueConsultationInvoice = async (strapi, appointmentId) => {
 			invoice = await stripe().invoices.pay(invoice.id, { paid_out_of_band: true }, on);
 		}
 	}
-	return { invoiceId: invoice.id, invoiceNumber: invoice.number, invoiceUrl: invoice.hosted_invoice_url };
+	return { invoiceId: invoice.id, invoiceNumber: invoice.number, invoiceUrl: documentLinks(consultationRef(a.documentId)).url };
 };
 
 /** Le patient reçoit sa facture quand elle n'a pas pu partir avec la confirmation du rendez-vous */
@@ -340,8 +342,9 @@ const creditConsultationInvoice = async (strapi, appointment) => {
 		},
 		{ ...on, idempotencyKey: `meyana-credit-note-${row.documentId}` }
 	);
-	await strapi.db.query(APPOINTMENT).update({ where: { id: row.id }, data: { creditNoteUrl: creditNote.pdf } });
-	return creditNote.pdf;
+	const creditNoteUrl = documentLinks(creditNoteRef(row.documentId)).url;
+	await strapi.db.query(APPOINTMENT).update({ where: { id: row.id }, data: { creditNoteUrl } });
+	return creditNoteUrl;
 };
 
 /* ------------------------------------------------------------------ */
@@ -391,7 +394,7 @@ const issueCommissionInvoice = async (strapi, doctor, user, payout, appointments
 		invoice = await stripe().invoices.finalizeInvoice(invoice.id, { auto_advance: false });
 	}
 	if (invoice.status === 'open') invoice = await stripe().invoices.pay(invoice.id, { paid_out_of_band: true });
-	return invoice.hosted_invoice_url;
+	return documentLinks(platformRef(invoice.id)).url;
 };
 
 /* ------------------------------------------------------------------ */
@@ -411,8 +414,7 @@ const listInvoices = async (strapi, doctor) => {
 				kind: invoice.metadata?.meyana === 'commission' ? 'commission' : 'subscription',
 				amount: invoice.total / 100,
 				status: invoice.status,
-				url: invoice.hosted_invoice_url,
-				pdf: invoice.invoice_pdf,
+				...documentLinks(platformRef(invoice.id)),
 			}));
 	}
 	const appointments = await strapi.db.query(APPOINTMENT).findMany({
@@ -432,20 +434,20 @@ const listInvoices = async (strapi, doctor) => {
 			patient: fullName(a.patient) || a.patient?.username || 'Patient',
 			amount: Number(a.price),
 			refunded: a.paymentStatus === 'refunded',
-			url: a.invoiceUrl,
-			creditNoteUrl: a.creditNoteUrl,
+			url: documentLinks(consultationRef(a.documentId)).url,
+			creditNoteUrl: a.creditNoteUrl ? documentLinks(creditNoteRef(a.documentId)).url : null,
 		})),
 	};
 };
 
 /**
- * Liens à jour vers la facture d'une consultation (page en ligne, PDF) et son avoir éventuel :
- * relus chez Stripe à chaque ouverture. Réservé au patient et au praticien du rendez-vous, et à l'admin.
+ * Liens Meyana vers la facture d'une consultation (page en ligne, PDF) et son avoir éventuel.
+ * Réservé au patient et au praticien du rendez-vous, et à l'admin.
  */
 const invoiceLinks = async (strapi, user, documentId) => {
 	const a = await strapi.db.query(APPOINTMENT).findOne({
 		where: { documentId },
-		select: ['id', 'invoiceId', 'paymentAccountId'],
+		select: ['id', 'documentId', 'invoiceId', 'invoiceNumber', 'creditNoteUrl'],
 		populate: {
 			patient: { select: ['id'] },
 			doctor: { select: ['id'], populate: { users_permissions_user: { select: ['id'] } } },
@@ -455,14 +457,11 @@ const invoiceLinks = async (strapi, user, documentId) => {
 	const allowed = a && (isAdmin || a.patient?.id === user.id || a.doctor?.users_permissions_user?.id === user.id);
 	if (!allowed) throw httpError(404, 'Facture introuvable.');
 	if (!a.invoiceId) throw httpError(404, 'La facture de cette consultation n’est pas encore disponible.');
-	const on = { stripeAccount: a.paymentAccountId };
-	const invoice = await stripe().invoices.retrieve(a.invoiceId, {}, on);
-	const { data: creditNotes } = await stripe().creditNotes.list({ invoice: a.invoiceId, limit: 1 }, on);
 	return {
-		number: invoice.number,
-		url: invoice.hosted_invoice_url,
-		pdf: invoice.invoice_pdf,
-		creditNotePdf: creditNotes[0]?.pdf || null,
+		number: a.invoiceNumber,
+		...documentLinks(consultationRef(a.documentId)),
+		creditNoteUrl: a.creditNoteUrl ? documentLinks(creditNoteRef(a.documentId)).url : null,
+		creditNotePdf: a.creditNoteUrl ? documentLinks(creditNoteRef(a.documentId)).pdf : null,
 	};
 };
 
@@ -512,15 +511,34 @@ const subscriptionInvoiceEmail = (doctor, invoice) => {
 				['Montant', amount],
 				['Facture', invoice.number],
 			],
-			secondary: { url: invoice.hosted_invoice_url, label: 'Voir la facture' },
+			secondary: { url: documentLinks(platformRef(invoice.id)).url, label: 'Voir la facture' },
 			link: '/dashboard/factures',
 			cta: 'Toutes mes factures',
 		}),
 	};
 };
 
+/**
+ * Au démarrage : liens enregistrés sur les rendez-vous (pages Stripe des premières factures)
+ * remplacés par les pages Meyana.
+ */
+const refreshInvoiceLinks = async (strapi) => {
+	const rows = await strapi.db.query(APPOINTMENT).findMany({
+		where: { invoiceId: { $notNull: true } },
+		select: ['id', 'documentId', 'invoiceUrl', 'creditNoteUrl'],
+		limit: 10000,
+	});
+	for (const row of rows) {
+		const data = { invoiceUrl: documentLinks(consultationRef(row.documentId)).url };
+		if (row.creditNoteUrl) data.creditNoteUrl = documentLinks(creditNoteRef(row.documentId)).url;
+		if (data.invoiceUrl === row.invoiceUrl && (data.creditNoteUrl ?? row.creditNoteUrl) === row.creditNoteUrl) continue;
+		await strapi.db.query(APPOINTMENT).update({ where: { id: row.id }, data });
+	}
+};
+
 module.exports = {
 	meyanaFooter,
+	refreshInvoiceLinks,
 	BILLING_FIELDS,
 	billingComplete,
 	billingInfoOf,

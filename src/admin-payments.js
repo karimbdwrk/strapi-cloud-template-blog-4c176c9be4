@@ -10,6 +10,7 @@
  */
 
 const { stripe } = require('./billing');
+const { documentLinks, platformRef } = require('./invoice-documents');
 const { PERIODS, parisKey, bucketOf, rangeFor } = require('./stats-range');
 
 const APPOINTMENT = 'api::appointment.appointment';
@@ -146,7 +147,7 @@ const overview = async (strapi, periodKey) => {
 			commission: 0,
 			status: i.status === 'paid' ? 'paid' : i.status === 'open' ? 'open' : 'failed',
 			description: periodLabel(i.lines?.data?.[0]?.period),
-			invoice: { number: i.number, url: i.hosted_invoice_url, pdf: i.invoice_pdf },
+			invoice: { number: i.number, ...documentLinks(platformRef(i.id)) },
 		};
 	});
 
@@ -202,7 +203,7 @@ const overview = async (strapi, periodKey) => {
 	const commissionInvoices = new Map(
 		invoices
 			.filter((i) => i.metadata?.meyana === 'commission' && i.metadata?.payoutId)
-			.map((i) => [i.metadata.payoutId, { number: i.number, url: i.hosted_invoice_url, pdf: i.invoice_pdf }])
+			.map((i) => [i.metadata.payoutId, { number: i.number, ...documentLinks(platformRef(i.id)) }])
 	);
 	const byPayout = new Map();
 	for (const a of rows) {
