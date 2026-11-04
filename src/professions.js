@@ -25,8 +25,34 @@ const slugify = (text) =>
 
 const key = (text) => (text || '').trim().toLowerCase();
 
+/**
+ * Métiers gérés depuis l'admin Meyana (/admin/metiers) : le catalogue ne les touche plus.
+ * - removed : métiers supprimés (slug, nom, métier) : le catalogue ne les recrée pas ;
+ * - managed : catégories modifiées ou créées dans l'admin : familles et libellés laissés tels quels.
+ */
+const adminStore = (strapi) => strapi.store({ type: 'core', name: 'professions' });
+
+const getAdminChanges = async (strapi) => {
+	const value = (await adminStore(strapi).get({ key: 'admin' })) || {};
+	return { removed: value.removed || [], managed: value.managed || [] };
+};
+
+const recordAdminChange = async (strapi, { removed = [], managed = [], deletedId }) => {
+	const current = await getAdminChanges(strapi);
+	await adminStore(strapi).set({
+		key: 'admin',
+		value: {
+			removed: [...new Set([...current.removed, ...removed.map(slugify).filter(Boolean)])],
+			managed: [...new Set([...current.managed, ...managed])].filter((id) => id !== deletedId),
+		},
+	});
+};
+
 const ensureProfessions = async (strapi) => {
 	const catalog = parseCatalog();
+	const { removed, managed } = await getAdminChanges(strapi);
+	const isRemoved = (profession) =>
+		removed.includes(slugify(profession.name)) || removed.includes(slugify(profession.professionName));
 
 	// Familles : retrouvées par slug, créées sinon
 	const existingFamilies = await strapi.documents(FAMILY).findMany({ fields: ['slug'], limit: -1 });
@@ -70,7 +96,9 @@ const ensureProfessions = async (strapi) => {
 	for (const profession of professions.values()) {
 		const families = [...profession.families];
 		const category = find(profession);
+		if (category && managed.includes(category.documentId)) continue;
 		if (!category) {
+			if (isRemoved(profession)) continue;
 			await strapi.documents(CATEGORY).create({
 				data: {
 					name: profession.name,
@@ -104,4 +132,4 @@ const ensureProfessions = async (strapi) => {
 	}
 };
 
-module.exports = { ensureProfessions };
+module.exports = { ensureProfessions, slugify, recordAdminChange };

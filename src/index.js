@@ -44,6 +44,10 @@ module.exports = {
     await ensureCharter(strapi);
     // Métiers référencés et familles de métiers (Médical, Paramédical, Bien-être) : ajoutés s'ils manquent
     await ensureProfessions(strapi);
+    // Gestion des métiers depuis l'admin Meyana (le contrôleur revérifie le rôle)
+    for (const action of ["adminList", "adminCreate", "adminUpdate", "adminDelete"]) {
+      await ensurePermission(strapi, { name: "SuperAdmin" }, `api::category.category.${action}`);
+    }
     // Liste Meyana des mots-clés de recherche (après les métiers, auxquels ils sont rattachés)
     await ensureKeywords(strapi);
     // Adresses de cabinet saisies à la main : ville et code postal vérifiés (tâche de fond)
