@@ -70,14 +70,24 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
 				where: { id: recipientId },
 				select: ['email', 'blocked', 'emailPreferences'],
 			});
-			if (!user?.email || user.blocked) return;
+			const label = `${notification.type} → user ${recipientId}`;
+			if (!user?.email || user.blocked) {
+				strapi.log.warn(`[notification] Email ignoré (${label}) : ${user ? (user.blocked ? 'compte bloqué' : 'pas d’adresse email') : 'utilisateur introuvable'}`);
+				return;
+			}
 			// Catégorie désactivée dans les réglages : notification dans le site uniquement
 			const category = categoryOf(notification.type);
-			if (category && user.emailPreferences?.[category] === false) return;
+			if (category && user.emailPreferences?.[category] === false) {
+				strapi.log.info(`[notification] Email ignoré (${label}) : préférence « ${category} » désactivée`);
+				return;
+			}
 
 			const message = custom || { subject: notification.title, ...renderEmail(notification) };
 			const sent = await sendEmail({ to: user.email, ...message });
-			if (!sent) return; // RESEND_API_KEY absente : notification dans le site uniquement
+			if (!sent) {
+				strapi.log.warn(`[notification] Email ignoré (${label}) : RESEND_API_KEY absente`);
+				return;
+			}
 
 			await strapi.documents(UID).update({
 				documentId: notification.documentId,
@@ -103,9 +113,17 @@ module.exports = createCoreService(UID, ({ strapi }) => ({
 				where: { id: recipient },
 				select: ['email', 'blocked', 'emailPreferences'],
 			});
-			if (!user?.email || user.blocked) return;
-			if (category && user.emailPreferences?.[category] === false) return;
-			await sendEmail({ to: user.email, ...email });
+			const label = `${category} → user ${recipient}`;
+			if (!user?.email || user.blocked) {
+				strapi.log.warn(`[notification] Email direct ignoré (${label}) : ${user ? (user.blocked ? 'compte bloqué' : 'pas d’adresse email') : 'utilisateur introuvable'}`);
+				return;
+			}
+			if (category && user.emailPreferences?.[category] === false) {
+				strapi.log.info(`[notification] Email direct ignoré (${label}) : préférence désactivée`);
+				return;
+			}
+			const sent = await sendEmail({ to: user.email, ...email });
+			if (!sent) strapi.log.warn(`[notification] Email direct ignoré (${label}) : RESEND_API_KEY absente`);
 		} catch (error) {
 			strapi.log.error(`[notification] Email direct non envoyé (${category}) : ${error.message}`);
 		}
