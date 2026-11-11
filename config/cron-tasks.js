@@ -4,6 +4,7 @@ const { purge } = require('../src/audience');
 const { expireOffers } = require('../src/billing');
 const { expirePending, mondayPayouts } = require('../src/payments');
 const { issueMissingInvoices } = require('../src/invoices');
+const { sendPatientReminders, sendCloseReminders } = require('../src/appointment-reminders');
 
 /** Tâches planifiées (heure de Paris) */
 module.exports = {
@@ -26,6 +27,16 @@ module.exports = {
 	issueMissingInvoices: {
 		task: ({ strapi }) => issueMissingInvoices(strapi),
 		options: { rule: '2-59/10 * * * *', tz: 'Europe/Paris' },
+	},
+	// Rendez-vous : rappel au patient environ 24 heures avant (vérifié toutes les heures)
+	appointmentReminders: {
+		task: ({ strapi }) => sendPatientReminders(strapi),
+		options: { rule: '20 * * * *', tz: 'Europe/Paris' },
+	},
+	// Rendez-vous : consultations passées à clôturer (le dimanche, relance avant le virement du lundi)
+	closeReminders: {
+		task: ({ strapi }) => sendCloseReminders(strapi),
+		options: { rule: '0 19 * * *', tz: 'Europe/Paris' },
 	},
 	// Consultations : virement des consultations clôturées et récapitulatif aux praticiens
 	mondayPayouts: {

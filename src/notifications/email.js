@@ -10,7 +10,8 @@
  */
 
 // Types de notification qui partent aussi par email.
-// Exclus : note_added (trop fréquent), appointment_to_close (rappel interne)
+// Exclus : note_added (trop fréquent), appointment_to_close (un seul email récapitulatif par
+// praticien, envoyé par src/appointment-reminders.js),
 // review_received (nouvel avis : notification dans le site uniquement)
 // et keyword_approved / keyword_rejected (modération des mots-clés : dans le site uniquement).
 const EMAIL_TYPES = new Set([

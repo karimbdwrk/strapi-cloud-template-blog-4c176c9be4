@@ -284,4 +284,99 @@ const doctorCancelledOwnEmail = (a) => {
 	return { subject: `Annulation confirmée · ${when}`, html, text };
 };
 
-module.exports = { patientBookedEmail, doctorBookedEmail, patientCancelledOwnEmail, doctorCancelledOwnEmail };
+/**
+ * Rappel envoyé au patient la veille (environ 24 heures avant).
+ * @param {string} dayWord « demain » ou « aujourd’hui »
+ */
+const patientReminderEmail = (a, dayWord) => {
+	const doctor = fullName(a.doctor) || 'votre praticien';
+	const profession = professionOf(a);
+	const time = timeOf(a.datetime);
+	const relative = relativeOf(a);
+	const paidOnline = a.paymentStatus === 'paid';
+
+	const { html, text } = renderEmail({
+		title: `Votre rendez-vous, ${dayWord} à ${time}`,
+		paragraphs: [
+			a.patient?.firstname ? `Bonjour ${a.patient.firstname},` : 'Bonjour,',
+			`Petit rappel : vous avez rendez-vous ${dayWord} à ${time} avec ${doctor}${
+				profession ? `, ${profession.toLowerCase()}` : ''
+			}${relative ? `, pour ${relative.split(',')[0]}` : ''}.`,
+		],
+		details: [
+			['Date', capitalize(dateLong(a.datetime))],
+			['Heure', `${time} · ${durationLabel(a.duration)}`],
+			['Praticien', [doctor, profession].filter(Boolean).join('\n')],
+			['Consultation', a.isOnline ? 'En visio' : 'Au cabinet'],
+			['Adresse', a.isOnline ? null : addressOf(a)],
+			['Pour', relative],
+			priceRowOf(a),
+		],
+		link: `/appointment/${a.UUID}`,
+		cta: 'Voir mon rendez-vous',
+		notes: [
+			a.isOnline
+				? a.visioLink
+					? 'Le lien de la visio est disponible sur la page du rendez-vous.'
+					: 'Le lien de la visio apparaîtra sur la page du rendez-vous : vous recevrez un email dès que votre praticien l’aura ajouté.'
+				: 'Présentez-vous quelques minutes avant l’heure du rendez-vous.',
+			'Pensez à déposer vos documents utiles (ordonnances, analyses, comptes rendus) sur la page du rendez-vous.',
+			paidOnline
+				? 'Un empêchement ? Annulez depuis votre espace. Une annulation à moins de 24 heures du rendez-vous n’est pas remboursée.'
+				: 'Un empêchement ? Annulez depuis votre espace pour libérer le créneau pour un autre patient.',
+		],
+	});
+
+	return { subject: `Rappel · rendez-vous ${dayWord} à ${time}`, html, text };
+};
+
+/**
+ * Récapitulatif au praticien des consultations passées qu’il n’a pas encore clôturées.
+ * @param {object}   params
+ * @param {string}   [params.firstname]
+ * @param {object[]} params.appointments  { datetime, patientName, paid }, des plus anciennes aux plus récentes
+ * @param {number}   params.awaitingNet   montant net (€) des consultations payées en attente de clôture
+ * @param {boolean}  params.beforePayout  relance de la veille du virement du lundi
+ */
+const doctorToCloseEmail = ({ firstname, appointments, awaitingNet, beforePayout }) => {
+	const count = appointments.length;
+	const shown = appointments.slice(0, 10);
+	const label = count > 1 ? `${count} consultations à clôturer` : '1 consultation à clôturer';
+	const amount = awaitingNet > 0 ? euros(awaitingNet) : null;
+
+	const { html, text } = renderEmail({
+		title: beforePayout && amount ? `${amount} en attente de clôture` : `Vous avez ${label}`,
+		paragraphs: [
+			firstname ? `Bonjour ${firstname},` : 'Bonjour,',
+			beforePayout && amount
+				? `Le virement de demain ne comprend que les consultations clôturées. Clôturez dès aujourd’hui celles qui ont bien eu lieu pour recevoir ${amount} lundi.`
+				: `Clôturez chaque rendez-vous qui a bien eu lieu, depuis sa page : votre patient est invité à laisser un avis${
+						amount ? ' et la consultation payée en ligne est versée le lundi suivant' : ''
+				  }.`,
+		],
+		details: [
+			...shown.map((a) => [
+				capitalize(`${dateLong(a.datetime).replace(/ \d{4}$/, '')} · ${timeOf(a.datetime)}`),
+				a.paid ? `${a.patientName}\nPayé en ligne` : a.patientName,
+			]),
+			count > shown.length ? ['Et aussi', `${count - shown.length} autre${count - shown.length > 1 ? 's' : ''}`] : null,
+			amount ? ['À verser après clôture', amount] : null,
+		],
+		link: amount ? '/dashboard/paiements' : '/dashboard',
+		cta: amount ? 'Voir mes paiements' : 'Voir mon agenda',
+		notes: [
+			'Pour clôturer, ouvrez le rendez-vous et choisissez « Clôturer le rendez-vous ».',
+		],
+	});
+
+	return { subject: beforePayout && amount ? `Avant le virement de lundi · ${label}` : label, html, text };
+};
+
+module.exports = {
+	patientBookedEmail,
+	doctorBookedEmail,
+	patientCancelledOwnEmail,
+	doctorCancelledOwnEmail,
+	patientReminderEmail,
+	doctorToCloseEmail,
+};

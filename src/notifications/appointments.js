@@ -226,6 +226,7 @@ const onUpdate = async (strapi, data, updated, previous) => {
 
 module.exports = {
 	uids: [UID],
+	loadAppointment,
 
 	/** Valeurs avant mise à jour, pour ne notifier que les vrais changements. */
 	async before(strapi, context) {

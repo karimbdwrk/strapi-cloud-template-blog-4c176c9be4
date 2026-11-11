@@ -626,6 +626,7 @@ const handlePaymentEvent = async (strapi, event) => {
 
 module.exports = {
 	COMMISSION_RATE,
+	netCents,
 	HOLD_MINUTES,
 	priceFor,
 	pendingPaymentData,
