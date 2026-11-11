@@ -436,12 +436,39 @@ const handleWebhook = async (strapi, rawBody, signature) => {
 	}
 	if (!event) throw httpError(400, `Signature invalide (${lastError.message})`);
 	const object = event.data.object;
+	// Emails d'alerte (chargé ici : payment-alerts.js dépend de payments.js, qui dépend de ce module)
+	const alerts = require('./payment-alerts');
 	switch (event.type) {
 		case 'customer.subscription.created':
 		case 'customer.subscription.updated':
-		case 'customer.subscription.deleted':
+			await syncSubscription(strapi, object);
+			break;
 		case 'customer.subscription.trial_will_end':
 			await syncSubscription(strapi, object);
+			await alerts.onTrialWillEnd(strapi, object);
+			break;
+		case 'customer.subscription.deleted': {
+			// État d'avant : l'email « Premium terminé » ne part que si l'abonnement était en cours
+			const customerId = typeof object.customer === 'string' ? object.customer : object.customer?.id;
+			const before = customerId ? await findDoctor(strapi, { stripeCustomerId: customerId }) : null;
+			const after = await syncSubscription(strapi, object);
+			await alerts.onSubscriptionEnded(strapi, object, before, after);
+			break;
+		}
+		// Comptes des praticiens : informations à compléter, encaissements ou virements bloqués
+		case 'account.updated':
+			await alerts.onAccountUpdated(strapi, object);
+			break;
+		// Contestation d'un paiement de consultation (compte du praticien)
+		case 'charge.dispute.created':
+			await alerts.onDisputeCreated(strapi, object);
+			break;
+		case 'charge.dispute.closed':
+			await alerts.onDisputeClosed(strapi, object);
+			break;
+		// Virement du lundi refusé par la banque du praticien
+		case 'payout.failed':
+			if (event.account) await alerts.onPayoutFailed(strapi, object, event.account);
 			break;
 		case 'checkout.session.completed':
 			if (object.mode === 'subscription' && object.subscription) {
@@ -459,6 +486,7 @@ const handleWebhook = async (strapi, rawBody, signature) => {
 			const id = object.parent?.subscription_details?.subscription ?? object.subscription;
 			if (id) await syncSubscription(strapi, await stripe().subscriptions.retrieve(id));
 			if (id && event.type === 'invoice.paid' && object.amount_paid > 0) await sendSubscriptionInvoice(strapi, object);
+			if (id && event.type === 'invoice.payment_failed') await alerts.onSubscriptionPaymentFailed(strapi, object);
 			break;
 		}
 		default:

@@ -36,6 +36,9 @@ const EMAIL_TYPES = new Set([
 	'admin_report',
 	'admin_support',
 	'admin_keyword',
+	'subscription_alert',
+	'payments_alert',
+	'admin_payments',
 ]);
 
 /**
@@ -62,8 +65,10 @@ const EMAIL_CATEGORIES = {
 		'account_reactivated',
 		'recommended_granted',
 		'recommended_removed',
+		'subscription_alert',
+		'payments_alert',
 	],
-	admin: ['admin_doctor_pending', 'admin_report', 'admin_support', 'admin_keyword'],
+	admin: ['admin_doctor_pending', 'admin_report', 'admin_support', 'admin_keyword', 'admin_payments'],
 };
 
 const categoryOf = (type) =>

@@ -51,7 +51,10 @@
         "admin_support",
         "keyword_approved",
         "keyword_rejected",
-        "admin_keyword"
+        "admin_keyword",
+        "subscription_alert",
+        "payments_alert",
+        "admin_payments"
       ]
     },
     "body": {

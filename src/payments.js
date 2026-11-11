@@ -391,14 +391,23 @@ const hasStarted = (appointment, now = new Date()) => new Date(appointment.datet
 const isPayable = (appointment, now = new Date()) =>
 	appointment.isCancelled ? hasStarted(appointment, now) : Boolean(appointment.isOver);
 
-/** Répartit des consultations payées et pas encore versées : à verser, à clôturer, à venir */
-const splitUnpaid = (appointments, now = new Date()) => ({
-	due: appointments.filter((a) => isPayable(a, now)),
-	toClose: appointments.filter((a) => !isPayable(a, now) && hasStarted(a, now)),
-	upcoming: appointments.filter((a) => !hasStarted(a, now)),
-});
+/** Paiement contesté auprès de la banque (en cours, ou perdu) : jamais versé */
+const isDisputed = (appointment) => appointment.disputeStatus === 'open' || appointment.disputeStatus === 'lost';
 
-const PAYOUT_FIELDS = ['id', 'UUID', 'datetime', 'price', 'isOver', 'isCancelled', 'paidOutAt', 'payoutId'];
+/**
+ * Répartit des consultations payées et pas encore versées : à verser, à clôturer, à venir.
+ * Les consultations contestées sont mises de côté (voir src/payment-alerts.js).
+ */
+const splitUnpaid = (all, now = new Date()) => {
+	const appointments = all.filter((a) => !isDisputed(a));
+	return {
+		due: appointments.filter((a) => isPayable(a, now)),
+		toClose: appointments.filter((a) => !isPayable(a, now) && hasStarted(a, now)),
+		upcoming: appointments.filter((a) => !hasStarted(a, now)),
+	};
+};
+
+const PAYOUT_FIELDS = ['id', 'UUID', 'datetime', 'price', 'isOver', 'isCancelled', 'paidOutAt', 'payoutId', 'disputeStatus'];
 
 /**
  * Virements du praticien (les plus récents d'abord), lus chez Stripe pour leur état et leur date
@@ -556,8 +565,11 @@ const mondayPayouts = async (strapi) => {
 		try {
 			result = await payOutDoctor(strapi, doctor, appointments, now);
 		} catch (error) {
-			// Compte incomplet (IBAN manquant…) : on réessaiera lundi prochain
+			// Compte incomplet (IBAN manquant…) : on réessaiera lundi prochain, l'équipe est prévenue
 			strapi.log.error(`Versement impossible pour le praticien ${doctor.documentId} : ${error.message}`);
+			await require('./payment-alerts')
+				.onMondayPayoutError(strapi, doctor, error, now)
+				.catch((alertError) => strapi.log.error(`Alertes de paiement : ${alertError.message}`));
 			continue;
 		}
 		const { paidOut, carriedOver, toClose, upcoming, commissionInvoiceUrl } = result;

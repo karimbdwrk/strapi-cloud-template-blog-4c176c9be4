@@ -5,6 +5,7 @@ const { expireOffers } = require('../src/billing');
 const { expirePending, mondayPayouts } = require('../src/payments');
 const { issueMissingInvoices } = require('../src/invoices');
 const { sendPatientReminders, sendCloseReminders } = require('../src/appointment-reminders');
+const { checkPaymentAccounts } = require('../src/payment-alerts');
 
 /** Tâches planifiées (heure de Paris) */
 module.exports = {
@@ -37,6 +38,11 @@ module.exports = {
 	closeReminders: {
 		task: ({ strapi }) => sendCloseReminders(strapi),
 		options: { rule: '0 19 * * *', tz: 'Europe/Paris' },
+	},
+	// Comptes de paiement des praticiens : informations à compléter, blocages (filet des webhooks)
+	checkPaymentAccounts: {
+		task: ({ strapi }) => checkPaymentAccounts(strapi),
+		options: { rule: '0 7 * * *', tz: 'Europe/Paris' },
 	},
 	// Consultations : virement des consultations clôturées et récapitulatif aux praticiens
 	mondayPayouts: {

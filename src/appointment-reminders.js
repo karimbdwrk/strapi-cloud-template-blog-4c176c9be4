@@ -115,7 +115,7 @@ const sendCloseReminders = async (strapi, now = new Date()) => {
 				NOT_PENDING,
 			],
 		},
-		select: ['id', 'documentId', 'UUID', 'datetime', 'duration', 'price', 'paymentStatus'],
+		select: ['id', 'documentId', 'UUID', 'datetime', 'duration', 'price', 'paymentStatus', 'disputeStatus'],
 		populate: {
 			patient: { select: ['firstname', 'lastname'] },
 			someoneElse: true,
@@ -155,7 +155,10 @@ const sendCloseReminders = async (strapi, now = new Date()) => {
 				});
 			}
 
-			const paid = appointments.filter((a) => a.paymentStatus === 'paid' && a.price);
+			// Paiements contestés exclus : ils ne seront pas versés lundi
+			const paid = appointments.filter(
+				(a) => a.paymentStatus === 'paid' && a.price && a.disputeStatus !== 'open' && a.disputeStatus !== 'lost'
+			);
 			// Un email s'il y a du nouveau ; le dimanche, aussi s'il reste des consultations payées à verser
 			if (!fresh.length && !(beforePayout && paid.length)) continue;
 

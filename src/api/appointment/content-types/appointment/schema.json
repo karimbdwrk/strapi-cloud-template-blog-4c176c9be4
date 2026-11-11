@@ -304,6 +304,19 @@
     },
     "creditNoteUrl": {
       "type": "string"
+    },
+    "disputeStatus": {
+      "type": "enumeration",
+      "enum": [
+        "open",
+        "won",
+        "lost"
+      ],
+      "private": true
+    },
+    "disputedAt": {
+      "type": "datetime",
+      "private": true
     }
   }
 }
