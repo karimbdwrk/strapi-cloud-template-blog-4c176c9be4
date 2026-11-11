@@ -158,8 +158,9 @@ const shouldEmail = (type) => EMAIL_TYPES.has(type);
 /**
  * Envoie l'email via l'API Resend. Renvoie true si accepté.
  * attachments : [{ filename, content (base64), contentType? }]
+ * headers : en-têtes supplémentaires (ex. List-Unsubscribe)
  */
-const sendEmail = async ({ to, subject, html, text, attachments }) => {
+const sendEmail = async ({ to, subject, html, text, attachments, headers }) => {
 	const apiKey = process.env.RESEND_API_KEY;
 	if (!apiKey) return false;
 	const res = await fetch('https://api.resend.com/emails', {
@@ -171,6 +172,7 @@ const sendEmail = async ({ to, subject, html, text, attachments }) => {
 			subject,
 			html,
 			text,
+			...(headers && { headers }),
 			...(attachments?.length && {
 				attachments: attachments.map(({ filename, content, contentType }) => ({
 					filename,

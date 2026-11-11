@@ -1099,6 +1099,7 @@ export interface ApiLanguageLanguage extends Struct.CollectionTypeSchema {
 export interface ApiNewsletterNewsletter extends Struct.CollectionTypeSchema {
   collectionName: 'newsletters';
   info: {
+    description: "Inscrits \u00E0 la newsletter. D\u00E9sinscrit = unsubscribedAt renseign\u00E9 (l'adresse n'est plus utilis\u00E9e).";
     displayName: 'Newsletter';
     pluralName: 'newsletters';
     singularName: 'newsletter';
@@ -1118,6 +1119,9 @@ export interface ApiNewsletterNewsletter extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     publishedAt: Schema.Attribute.DateTime;
+    subscribedAt: Schema.Attribute.DateTime;
+    token: Schema.Attribute.String & Schema.Attribute.Private;
+    unsubscribedAt: Schema.Attribute.DateTime;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;

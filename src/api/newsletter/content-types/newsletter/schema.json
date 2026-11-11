@@ -4,7 +4,8 @@
   "info": {
     "singularName": "newsletter",
     "pluralName": "newsletters",
-    "displayName": "Newsletter"
+    "displayName": "Newsletter",
+    "description": "Inscrits à la newsletter. Désinscrit = unsubscribedAt renseigné (l'adresse n'est plus utilisée)."
   },
   "options": {
     "draftAndPublish": false
@@ -13,6 +14,17 @@
   "attributes": {
     "email": {
       "type": "email"
+    },
+    "subscribedAt": {
+      "type": "datetime"
+    },
+    "unsubscribedAt": {
+      "type": "datetime"
+    },
+    "token": {
+      "type": "string",
+      "private": true,
+      "configurable": false
     }
   }
 }

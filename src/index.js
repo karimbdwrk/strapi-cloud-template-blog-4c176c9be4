@@ -10,6 +10,7 @@ const { registerRatingScore, ensureDoctorRatings } = require("./rating-score");
 const { ensureProfessions } = require("./professions");
 const { registerKeywords, ensureKeywords } = require("./keywords");
 const { scheduleAddressGeocoding } = require("./address-geocoding");
+const { ensureNewsletterTokens } = require("./newsletter");
 
 /**
  * Droits jamais accordés aux rôles Public et Authenticated :
@@ -39,6 +40,12 @@ const FORBIDDEN_FOR_USERS = [
   "plugin::upload.content-api.find",
   "plugin::upload.content-api.findOne",
   "plugin::upload.content-api.destroy",
+  // Newsletter : plus de routes CRUD (routes sur mesure, liste des inscrits jamais exposée)
+  "api::newsletter.newsletter.find",
+  "api::newsletter.newsletter.findOne",
+  "api::newsletter.newsletter.create",
+  "api::newsletter.newsletter.update",
+  "api::newsletter.newsletter.delete",
 ];
 
 const lockDownAuthenticatedRole = async (strapi) => {
@@ -77,6 +84,9 @@ module.exports = {
     // Sécurité : droits retirés aux comptes connectés (patients, praticiens), réservés au SuperAdmin.
     // Appliqué à chaque démarrage : une case recochée par erreur dans le panneau Strapi est décochée.
     await lockDownAuthenticatedRole(strapi);
+    // Newsletter : jeton de désinscription des anciens inscrits, export CSV réservé à l'admin
+    await ensureNewsletterTokens(strapi);
+    await ensurePermission(strapi, { name: "SuperAdmin" }, "api::newsletter.newsletter.export");
     // Index unique des créneaux : refuse en base deux réservations simultanées du même créneau
     await ensureSlotIndex(strapi);
     // Charte éthique : créée avec le texte d'origine si absente, lisible par tous
