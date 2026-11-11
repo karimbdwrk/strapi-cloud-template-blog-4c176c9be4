@@ -11,6 +11,42 @@ const { ensureProfessions } = require("./professions");
 const { registerKeywords, ensureKeywords } = require("./keywords");
 const { scheduleAddressGeocoding } = require("./address-geocoding");
 
+/**
+ * Droits jamais accordés aux rôles Public et Authenticated :
+ * - comptes utilisateurs : lister tous les comptes (emails) ou modifier celui d'un autre
+ *   (bloquer, changer l'email ou le rôle). Le compte connecté passe par /users/me, et les
+ *   contrôleurs ajoutent eux-mêmes le patient / le demandeur quand c'est utile ;
+ * - rôles : lecture et gestion des rôles ;
+ * - métiers : création, modification, suppression (l'admin Meyana passe par /categories/admin) ;
+ * - fichiers : lister, lire ou supprimer tous les fichiers envoyés (documents médicaux compris).
+ *   L'envoi d'un fichier (upload) reste permis.
+ */
+const FORBIDDEN_FOR_USERS = [
+  "plugin::users-permissions.user.find",
+  "plugin::users-permissions.user.findOne",
+  "plugin::users-permissions.user.count",
+  "plugin::users-permissions.user.create",
+  "plugin::users-permissions.user.update",
+  "plugin::users-permissions.user.destroy",
+  "plugin::users-permissions.role.find",
+  "plugin::users-permissions.role.findOne",
+  "plugin::users-permissions.role.createRole",
+  "plugin::users-permissions.role.updateRole",
+  "plugin::users-permissions.role.deleteRole",
+  "api::category.category.create",
+  "api::category.category.update",
+  "api::category.category.delete",
+  "plugin::upload.content-api.find",
+  "plugin::upload.content-api.findOne",
+  "plugin::upload.content-api.destroy",
+];
+
+const lockDownAuthenticatedRole = async (strapi) => {
+  for (const role of [{ type: "public" }, { type: "authenticated" }]) {
+    for (const action of FORBIDDEN_FOR_USERS) await revokePermission(strapi, role, action);
+  }
+};
+
 module.exports = {
   /**
    * An asynchronous register function that runs before
@@ -38,6 +74,9 @@ module.exports = {
    */
   async bootstrap({ strapi }) {
     await seedBootstrap();
+    // Sécurité : droits retirés aux comptes connectés (patients, praticiens), réservés au SuperAdmin.
+    // Appliqué à chaque démarrage : une case recochée par erreur dans le panneau Strapi est décochée.
+    await lockDownAuthenticatedRole(strapi);
     // Index unique des créneaux : refuse en base deux réservations simultanées du même créneau
     await ensureSlotIndex(strapi);
     // Charte éthique : créée avec le texte d'origine si absente, lisible par tous

@@ -76,7 +76,44 @@ const stripProtected = (data = {}) => {
 	return clean;
 };
 
+/**
+ * Rendez-vous du praticien (relation `appointments`) : jamais renvoyés avec la fiche, sauf au
+ * praticien lui-même et au SuperAdmin. Sans ça, `/doctors?populate=*` donnait à tout compte
+ * connecté les rendez-vous (dates, motifs…) de chaque praticien.
+ */
+const PRIVATE_RELATIONS = ['appointments'];
+
+const stripPrivateRelations = (entities) => {
+	for (const entity of (Array.isArray(entities) ? entities : [entities]).filter(Boolean)) {
+		for (const key of PRIVATE_RELATIONS) delete entity[key];
+	}
+};
+
+const isOwnProfile = async (strapi, documentId, user) =>
+	Boolean(
+		user &&
+			(await strapi.documents(UID).findFirst({
+				filters: { documentId, users_permissions_user: { id: user.id } },
+				fields: ['id'],
+			}))
+	);
+
 module.exports = createCoreController(UID, ({ strapi }) => ({
+	async find(ctx) {
+		const response = await super.find(ctx);
+		if (!isAdmin(ctx.state.user)) stripPrivateRelations(response?.data);
+		return response;
+	},
+
+	async findOne(ctx) {
+		const response = await super.findOne(ctx);
+		const user = ctx.state.user;
+		if (!isAdmin(user) && !(await isOwnProfile(strapi, ctx.params.id, user))) {
+			stripPrivateRelations(response?.data);
+		}
+		return response;
+	},
+
 	async create(ctx) {
 		const user = ctx.state.user;
 		if (!user) return ctx.unauthorized();

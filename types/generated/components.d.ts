@@ -18,14 +18,18 @@ export interface AppAddress extends Struct.ComponentSchema {
 export interface AppAddressDoctor extends Struct.ComponentSchema {
   collectionName: 'components_app_address_doctors';
   info: {
-    description: '';
+    description: "Adresse de cabinet. citycode (code commune INSEE), latitude et longitude : renseign\u00E9s quand l'adresse vient des suggestions de la G\u00E9oplateforme (IGN). geocodedAt : date de la v\u00E9rification automatique (src/address-geocoding.js)";
     displayName: 'AddressDoctor';
     icon: 'apps';
   };
   attributes: {
     city: Schema.Attribute.String;
+    citycode: Schema.Attribute.String;
     country: Schema.Attribute.String;
+    geocodedAt: Schema.Attribute.DateTime;
+    latitude: Schema.Attribute.Float;
     line: Schema.Attribute.String;
+    longitude: Schema.Attribute.Float;
     postcode: Schema.Attribute.String;
   };
 }
@@ -171,23 +175,39 @@ export interface AppSpeciality extends Struct.ComponentSchema {
 export interface AppWorkday extends Struct.ComponentSchema {
   collectionName: 'components_app_workdays';
   info: {
-    description: '';
+    description: "Journ\u00E9e de consultation. morningMode / afternoonMode : physical (cabinet), online (visio) ou both. L'apr\u00E8s-midi commence \u00E0 la fin de la pause, ou \u00E0 splitTime s'il n'y a pas de pause ; ni pause ni splitTime : morningMode vaut pour toute la journ\u00E9e. Modes vides : isOnline fait foi (anciennes journ\u00E9es).";
     displayName: 'workday';
     icon: 'apps';
   };
   attributes: {
     address: Schema.Attribute.String;
+    afternoonMode: Schema.Attribute.Enumeration<['physical', 'online', 'both']>;
     city: Schema.Attribute.String;
     duration: Schema.Attribute.Integer;
     endBreak: Schema.Attribute.Time;
     endTime: Schema.Attribute.Time;
     isOff: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
     isOnline: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    morningMode: Schema.Attribute.Enumeration<['physical', 'online', 'both']>;
     postcode: Schema.Attribute.String;
+    splitTime: Schema.Attribute.Time;
     startBreak: Schema.Attribute.Time;
     startTime: Schema.Attribute.Time;
     title: Schema.Attribute.String;
     value: Schema.Attribute.Integer;
+  };
+}
+
+export interface CharterSection extends Struct.ComponentSchema {
+  collectionName: 'components_charter_sections';
+  info: {
+    description: 'Pr\u00E9ambule ou article de la charte. Texte : une ligne vide entre deux paragraphes, \u00AB \u2022 \u00BB en d\u00E9but de ligne pour une puce.';
+    displayName: 'section';
+    icon: 'bulletList';
+  };
+  attributes: {
+    content: Schema.Attribute.Text & Schema.Attribute.Required;
+    title: Schema.Attribute.String & Schema.Attribute.Required;
   };
 }
 
@@ -358,6 +378,7 @@ declare module '@strapi/strapi' {
       'app.holidays': AppHolidays;
       'app.speciality': AppSpeciality;
       'app.workday': AppWorkday;
+      'charter.section': CharterSection;
       'shared.media': SharedMedia;
       'shared.quote': SharedQuote;
       'shared.rich-text': SharedRichText;

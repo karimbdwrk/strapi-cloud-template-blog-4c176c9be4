@@ -476,9 +476,11 @@ export interface ApiAppointmentAppointment extends Struct.CollectionTypeSchema {
       false
     >;
     category: Schema.Attribute.Relation<'manyToOne', 'api::category.category'>;
+    chargeId: Schema.Attribute.String & Schema.Attribute.Private;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    creditNoteUrl: Schema.Attribute.String;
     date: Schema.Attribute.Date;
     datetime: Schema.Attribute.DateTime;
     docFromPatientA: Schema.Attribute.Media<
@@ -508,6 +510,9 @@ export interface ApiAppointmentAppointment extends Struct.CollectionTypeSchema {
     document5: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
     document6: Schema.Attribute.Media<'images' | 'files' | 'videos' | 'audios'>;
     duration: Schema.Attribute.Integer;
+    invoiceId: Schema.Attribute.String & Schema.Attribute.Private;
+    invoiceNumber: Schema.Attribute.String;
+    invoiceUrl: Schema.Attribute.String;
     isCancelled: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     isCancelledByPatient: Schema.Attribute.Boolean &
       Schema.Attribute.DefaultTo<false>;
@@ -526,17 +531,30 @@ export interface ApiAppointmentAppointment extends Struct.CollectionTypeSchema {
       'oneToMany',
       'api::notification.notification'
     >;
+    paidAt: Schema.Attribute.DateTime;
+    paidOutAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
     patient: Schema.Attribute.Relation<
       'manyToOne',
       'plugin::users-permissions.user'
     >;
+    paymentAccountId: Schema.Attribute.String & Schema.Attribute.Private;
+    paymentIntentId: Schema.Attribute.String & Schema.Attribute.Private;
+    paymentStatus: Schema.Attribute.Enumeration<
+      ['none', 'pending', 'paid', 'refunded']
+    > &
+      Schema.Attribute.DefaultTo<'none'>;
+    payoutId: Schema.Attribute.String & Schema.Attribute.Private;
+    pendingUntil: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    price: Schema.Attribute.Decimal;
     publishedAt: Schema.Attribute.DateTime;
     rating: Schema.Attribute.Relation<'oneToOne', 'api::rating.rating'>;
     reason: Schema.Attribute.String;
+    refundedAt: Schema.Attribute.DateTime;
     reportings: Schema.Attribute.Relation<
       'oneToMany',
       'api::reporting.reporting'
     >;
+    slotKey: Schema.Attribute.String & Schema.Attribute.Private;
     someoneElse: Schema.Attribute.Component<'user.someone-else', false>;
     support_tickets: Schema.Attribute.Relation<
       'oneToMany',
@@ -653,6 +671,11 @@ export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     description: Schema.Attribute.Text;
     doctors: Schema.Attribute.Relation<'manyToMany', 'api::doctor.doctor'>;
+    families: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::profession-family.profession-family'
+    >;
+    keywords: Schema.Attribute.Relation<'manyToMany', 'api::keyword.keyword'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -680,6 +703,43 @@ export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
           'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
         }
       >;
+  };
+}
+
+export interface ApiCharterCharter extends Struct.SingleTypeSchema {
+  collectionName: 'charters';
+  info: {
+    description: 'Texte sign\u00E9 par chaque praticien. Changer la version \u00E0 chaque modification du texte : les praticiens devront la signer \u00E0 nouveau.';
+    displayName: 'Charte \u00E9thique';
+    pluralName: 'charters';
+    singularName: 'charter';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    dateLabel: Schema.Attribute.String;
+    declaration: Schema.Attribute.Text;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::charter.charter'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    sections: Schema.Attribute.Component<'charter.section', true>;
+    title: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'Charte \u00E9thique et d\u00E9ontologique des praticiens'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    version: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'1.0'>;
   };
 }
 
@@ -808,6 +868,7 @@ export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
     >;
     articles: Schema.Attribute.Relation<'oneToMany', 'api::article.article'>;
     avatar: Schema.Attribute.Media<'images'>;
+    billingAddress: Schema.Attribute.JSON & Schema.Attribute.Private;
     carousel: Schema.Attribute.Component<'app.carousel', true>;
     categories: Schema.Attribute.Relation<
       'manyToMany',
@@ -829,9 +890,12 @@ export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
     firstname: Schema.Attribute.String;
     friday: Schema.Attribute.Component<'app.workday', false>;
     gender: Schema.Attribute.String;
+    hasBillingInfo: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
     holidays: Schema.Attribute.Component<'app.holidays', true>;
     isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     isRecommended: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    keywords: Schema.Attribute.Relation<'manyToMany', 'api::keyword.keyword'>;
     languages: Schema.Attribute.Relation<
       'manyToMany',
       'api::language.language'
@@ -844,18 +908,41 @@ export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     monday: Schema.Attribute.Component<'app.workday', false>;
+    offeredUntil: Schema.Attribute.DateTime & Schema.Attribute.Private;
     office: Schema.Attribute.Relation<'manyToOne', 'api::office.office'>;
     onlyMen: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     onlyPhone: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
     onlyWomen: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    paymentsEnabled: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    plan: Schema.Attribute.Enumeration<['essentiel', 'premium']> &
+      Schema.Attribute.DefaultTo<'essentiel'>;
     priceRange: Schema.Attribute.Component<'user.price-range', false>;
     publishedAt: Schema.Attribute.DateTime;
+    ratingAverage: Schema.Attribute.Decimal;
+    ratingCount: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     ratings: Schema.Attribute.Relation<'oneToMany', 'api::rating.rating'>;
     reason: Schema.Attribute.Component<'user.reason', true>;
+    rejectedAt: Schema.Attribute.DateTime;
+    rejectionReason: Schema.Attribute.Text;
     saturday: Schema.Attribute.Component<'app.workday', false>;
+    siret: Schema.Attribute.String & Schema.Attribute.Private;
     speciality: Schema.Attribute.Component<'app.speciality', true>;
+    stripeAccountId: Schema.Attribute.String & Schema.Attribute.Private;
+    stripeCustomerId: Schema.Attribute.String & Schema.Attribute.Private;
+    stripeSubscriptionId: Schema.Attribute.String & Schema.Attribute.Private;
+    subscriptionCancelAtPeriodEnd: Schema.Attribute.Boolean &
+      Schema.Attribute.Private &
+      Schema.Attribute.DefaultTo<false>;
+    subscriptionInterval: Schema.Attribute.Enumeration<['month', 'year']> &
+      Schema.Attribute.Private;
+    subscriptionPeriodEnd: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    subscriptionStatus: Schema.Attribute.String & Schema.Attribute.Private;
     sunday: Schema.Attribute.Component<'app.workday', false>;
     thursday: Schema.Attribute.Component<'app.workday', false>;
+    trialUsed: Schema.Attribute.Boolean &
+      Schema.Attribute.Private &
+      Schema.Attribute.DefaultTo<false>;
     tuesday: Schema.Attribute.Component<'app.workday', false>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
@@ -881,6 +968,11 @@ export interface ApiDoctorDoctor extends Struct.CollectionTypeSchema {
         }
       >;
     validatedAt: Schema.Attribute.DateTime;
+    vatNumber: Schema.Attribute.String & Schema.Attribute.Private;
+    vatRegime: Schema.Attribute.Enumeration<
+      ['exempt_health', 'franchise', 'vat']
+    > &
+      Schema.Attribute.Private;
     wednesday: Schema.Attribute.Component<'app.workday', false>;
   };
 }
@@ -911,6 +1003,58 @@ export interface ApiGlobalGlobal extends Struct.SingleTypeSchema {
     publishedAt: Schema.Attribute.DateTime;
     siteDescription: Schema.Attribute.Text & Schema.Attribute.Required;
     siteName: Schema.Attribute.String & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiKeywordKeyword extends Struct.CollectionTypeSchema {
+  collectionName: 'keywords';
+  info: {
+    description: 'Mots-cl\u00E9s de recherche des praticiens (sympt\u00F4mes, motifs, approches, publics). Liste Meyana (global) ou mots-cl\u00E9s propres \u00E0 un praticien, valid\u00E9s par la mod\u00E9ration';
+    displayName: 'Mot-cl\u00E9';
+    pluralName: 'keywords';
+    singularName: 'keyword';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    categories: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::category.category'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    doctors: Schema.Attribute.Relation<'manyToMany', 'api::doctor.doctor'>;
+    global: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::keyword.keyword'
+    > &
+      Schema.Attribute.Private;
+    moderatedAt: Schema.Attribute.DateTime;
+    moderationNote: Schema.Attribute.Text & Schema.Attribute.Private;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 60;
+      }>;
+    proposedBy: Schema.Attribute.Relation<'manyToOne', 'api::doctor.doctor'> &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    searchText: Schema.Attribute.Text;
+    sensitive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    status: Schema.Attribute.Enumeration<['pending', 'approved', 'rejected']> &
+      Schema.Attribute.DefaultTo<'approved'>;
+    synonyms: Schema.Attribute.Text;
+    type: Schema.Attribute.Enumeration<
+      ['symptom', 'reason', 'approach', 'audience']
+    > &
+      Schema.Attribute.DefaultTo<'symptom'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1032,16 +1176,22 @@ export interface ApiNotificationNotification
         'document_added',
         'review_request',
         'review_received',
+        'account_pending',
         'account_validated',
+        'account_rejected',
         'account_suspended',
         'account_reactivated',
         'recommended_granted',
         'recommended_removed',
         'support_reply',
         'support_resolved',
+        'report_update',
         'admin_doctor_pending',
         'admin_report',
         'admin_support',
+        'keyword_approved',
+        'keyword_rejected',
+        'admin_keyword',
       ]
     > &
       Schema.Attribute.Required;
@@ -1095,6 +1245,100 @@ export interface ApiOfficeOffice extends Struct.CollectionTypeSchema {
           'uuid-format': '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
         }
       >;
+  };
+}
+
+export interface ApiPageViewPageView extends Struct.CollectionTypeSchema {
+  collectionName: 'page_views';
+  info: {
+    description: "Mesure d'audience sans cookie : une ligne par page vue (conserv\u00E9e 13 mois)";
+    displayName: 'Visite de page';
+    pluralName: 'page-views';
+    singularName: 'page-view';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: true;
+    };
+    'content-type-builder': {
+      visible: true;
+    };
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    device: Schema.Attribute.Enumeration<['mobile', 'tablet', 'desktop']> &
+      Schema.Attribute.DefaultTo<'desktop'>;
+    doctorDocumentId: Schema.Attribute.String;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::page-view.page-view'
+    > &
+      Schema.Attribute.Private;
+    pageType: Schema.Attribute.Enumeration<
+      ['home', 'search', 'doctor', 'article', 'blog', 'other', 'not_found']
+    > &
+      Schema.Attribute.DefaultTo<'other'>;
+    path: Schema.Attribute.String & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    source: Schema.Attribute.Enumeration<
+      ['direct', 'search', 'social', 'internal', 'referral']
+    > &
+      Schema.Attribute.DefaultTo<'direct'>;
+    sourceName: Schema.Attribute.String;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    visitor: Schema.Attribute.Enumeration<
+      ['anonymous', 'patient', 'practitioner']
+    > &
+      Schema.Attribute.DefaultTo<'anonymous'>;
+    visitorHash: Schema.Attribute.String & Schema.Attribute.Private;
+  };
+}
+
+export interface ApiProfessionFamilyProfessionFamily
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'profession_families';
+  info: {
+    description: 'Regroupe les m\u00E9tiers (cat\u00E9gories) par domaine : M\u00E9dical, Param\u00E9dical, Bien-\u00EAtre et accompagnement';
+    displayName: 'Famille de m\u00E9tiers';
+    pluralName: 'profession-families';
+    singularName: 'profession-family';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    categories: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::category.category'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    domain: Schema.Attribute.Enumeration<
+      ['medical', 'paramedical', 'wellbeing']
+    > &
+      Schema.Attribute.Required;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::profession-family.profession-family'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String & Schema.Attribute.Required;
+    order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'name'>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
   };
 }
 
@@ -1166,15 +1410,18 @@ export interface ApiReportingReporting extends Struct.CollectionTypeSchema {
     draftAndPublish: false;
   };
   attributes: {
+    adminNote: Schema.Attribute.Text;
     appointment: Schema.Attribute.Relation<
       'manyToOne',
       'api::appointment.appointment'
     >;
+    closedAt: Schema.Attribute.DateTime;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    doctor: Schema.Attribute.Relation<'oneToOne', 'api::doctor.doctor'>;
+    doctor: Schema.Attribute.Relation<'manyToOne', 'api::doctor.doctor'>;
     from: Schema.Attribute.Enumeration<['doctor', 'patient']>;
+    history: Schema.Attribute.JSON;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -1183,11 +1430,16 @@ export interface ApiReportingReporting extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     note: Schema.Attribute.RichText;
     patient: Schema.Attribute.Relation<
-      'oneToOne',
+      'manyToOne',
       'plugin::users-permissions.user'
     >;
     publishedAt: Schema.Attribute.DateTime;
     reason: Schema.Attribute.String;
+    reportStatus: Schema.Attribute.Enumeration<
+      ['open', 'in_progress', 'resolved', 'dismissed']
+    > &
+      Schema.Attribute.DefaultTo<'open'>;
+    resolution: Schema.Attribute.Text;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1847,6 +2099,7 @@ export interface PluginUsersPermissionsUser
       Schema.Attribute.SetMinMaxLength<{
         minLength: 6;
       }>;
+    emailPreferences: Schema.Attribute.JSON & Schema.Attribute.Private;
     firstname: Schema.Attribute.String;
     isDoctor: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     lastname: Schema.Attribute.String;
@@ -1932,15 +2185,19 @@ declare module '@strapi/strapi' {
       'api::article.article': ApiArticleArticle;
       'api::author.author': ApiAuthorAuthor;
       'api::category.category': ApiCategoryCategory;
+      'api::charter.charter': ApiCharterCharter;
       'api::city.city': ApiCityCity;
       'api::country.country': ApiCountryCountry;
       'api::department.department': ApiDepartmentDepartment;
       'api::doctor.doctor': ApiDoctorDoctor;
       'api::global.global': ApiGlobalGlobal;
+      'api::keyword.keyword': ApiKeywordKeyword;
       'api::language.language': ApiLanguageLanguage;
       'api::newsletter.newsletter': ApiNewsletterNewsletter;
       'api::notification.notification': ApiNotificationNotification;
       'api::office.office': ApiOfficeOffice;
+      'api::page-view.page-view': ApiPageViewPageView;
+      'api::profession-family.profession-family': ApiProfessionFamilyProfessionFamily;
       'api::rating.rating': ApiRatingRating;
       'api::reporting.reporting': ApiReportingReporting;
       'api::support-message.support-message': ApiSupportMessageSupportMessage;
