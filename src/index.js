@@ -84,6 +84,9 @@ module.exports = {
     // Sécurité : droits retirés aux comptes connectés (patients, praticiens), réservés au SuperAdmin.
     // Appliqué à chaque démarrage : une case recochée par erreur dans le panneau Strapi est décochée.
     await lockDownAuthenticatedRole(strapi);
+    // Sessions par cookie : renouvellement du jeton (sans être connecté) et déconnexion
+    await ensurePermission(strapi, { type: "public" }, "plugin::users-permissions.auth.refresh");
+    await ensurePermission(strapi, { type: "authenticated" }, "plugin::users-permissions.auth.logout");
     // Newsletter : jeton de désinscription des anciens inscrits, export CSV réservé à l'admin
     await ensureNewsletterTokens(strapi);
     await ensurePermission(strapi, { name: "SuperAdmin" }, "api::newsletter.newsletter.export");

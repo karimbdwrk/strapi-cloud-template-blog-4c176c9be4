@@ -9,6 +9,11 @@
  *   compte existe ou non (pas de découverte des adresses inscrites).
  * - resetPassword  : refuse un lien expiré, puis confirme le changement par email.
  * - changePassword : confirme le changement par email.
+ *
+ * Sessions par cookie (AUTH_SESSION_COOKIE, voir config/plugins.js) : Strapi pose lui-même
+ * le cookie à la connexion et au renouvellement, mais renvoie le jeton de session dans la
+ * réponse après l'inscription, un changement ou une réinitialisation du mot de passe, et
+ * n'efface pas le cookie (domaine et chemin) à la déconnexion : corrigé ici.
  */
 
 const crypto = require('crypto');
@@ -63,6 +68,34 @@ const sendPasswordChanged = async (strapi, user) => {
 	}
 };
 
+/** Réglages du cookie de session, ou null sans sessions par cookie */
+const sessionCookie = (strapi) => {
+	if (strapi.config.get('plugin::users-permissions.jwtManagement') !== 'refresh') return null;
+	const sessions = strapi.config.get('plugin::users-permissions.sessions') || {};
+	if (!sessions.httpOnly) return null;
+	const cookie = sessions.cookie || {};
+	return {
+		name: cookie.name || 'strapi_up_refresh',
+		options: {
+			httpOnly: true,
+			secure: typeof cookie.secure === 'boolean' ? cookie.secure : process.env.NODE_ENV === 'production',
+			sameSite: cookie.sameSite ?? 'lax',
+			path: cookie.path ?? '/',
+			domain: cookie.domain,
+			overwrite: true,
+		},
+	};
+};
+
+/** Nouveau jeton de session renvoyé par Strapi : rangé dans le cookie, retiré de la réponse */
+const moveRefreshTokenToCookie = (strapi, ctx) => {
+	const cookie = sessionCookie(strapi);
+	if (!cookie || !ctx.body?.refreshToken) return;
+	ctx.cookies.set(cookie.name, ctx.body.refreshToken, cookie.options);
+	const { refreshToken, ...body } = ctx.body;
+	ctx.body = body;
+};
+
 module.exports = (plugin) => {
 	const createAuthController = plugin.controllers.auth;
 
@@ -115,6 +148,7 @@ module.exports = (plugin) => {
 
 				// Contrôles et changement du mot de passe par Strapi (erreur si code invalide)
 				await base.resetPassword(ctx);
+				moveRefreshTokenToCookie(strapi, ctx);
 
 				if (user) {
 					await strapi.db.query(USER_UID).update({
@@ -125,12 +159,25 @@ module.exports = (plugin) => {
 				}
 			},
 
+			async register(ctx) {
+				await base.register(ctx);
+				moveRefreshTokenToCookie(strapi, ctx);
+			},
+
 			async changePassword(ctx) {
 				await base.changePassword(ctx);
+				moveRefreshTokenToCookie(strapi, ctx);
 				const user = ctx.state.user
 					? await strapi.db.query(USER_UID).findOne({ where: { id: ctx.state.user.id } })
 					: null;
 				await sendPasswordChanged(strapi, user);
+			},
+
+			/** Déconnexion : session révoquée par Strapi, puis cookie effacé avec ses domaine et chemin */
+			async logout(ctx) {
+				await base.logout(ctx);
+				const cookie = sessionCookie(strapi);
+				if (cookie) ctx.cookies.set(cookie.name, null, { ...cookie.options, expires: new Date(0) });
 			},
 		};
 	};

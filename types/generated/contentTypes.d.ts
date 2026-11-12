@@ -483,6 +483,9 @@ export interface ApiAppointmentAppointment extends Struct.CollectionTypeSchema {
     creditNoteUrl: Schema.Attribute.String;
     date: Schema.Attribute.Date;
     datetime: Schema.Attribute.DateTime;
+    disputedAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
+    disputeStatus: Schema.Attribute.Enumeration<['open', 'won', 'lost']> &
+      Schema.Attribute.Private;
     docFromPatientA: Schema.Attribute.Media<
       'images' | 'files' | 'videos' | 'audios'
     >;
@@ -1196,6 +1199,9 @@ export interface ApiNotificationNotification
         'keyword_approved',
         'keyword_rejected',
         'admin_keyword',
+        'subscription_alert',
+        'payments_alert',
+        'admin_payments',
       ]
     > &
       Schema.Attribute.Required;

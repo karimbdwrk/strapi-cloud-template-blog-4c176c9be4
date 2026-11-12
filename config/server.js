@@ -1,6 +1,8 @@
 module.exports = ({ env }) => ({
 	host: env("HOST", "0.0.0.0"),
 	port: env.int("PORT", 1337),
+	// Derrière le proxy HTTPS de l'hébergeur : nécessaire pour poser un cookie « secure »
+	proxy: { koa: env.bool("IS_PROXIED", env("NODE_ENV") === "production") },
 	app: {
 		keys: env.array("APP_KEYS"),
 	},
