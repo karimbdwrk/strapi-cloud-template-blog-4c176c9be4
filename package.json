@@ -12,6 +12,7 @@
     "strapi": "strapi"
   },
   "dependencies": {
+    "@sentry/node": "10.78.0",
     "@strapi/design-system": "2.1.2",
     "@strapi/icons": "2.1.2",
     "@strapi/plugin-cloud": "5.37.0",

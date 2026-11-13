@@ -1,6 +1,8 @@
 module.exports = [
   'strapi::logger',
   'strapi::errors',
+  // Pannes de l'API envoyées à Sentry (inactif sans SENTRY_DSN, voir src/sentry.js)
+  'global::sentry',
   'strapi::security',
   // Sessions par cookie (config/plugins.js) : seul le site peut appeler l'API avec ses cookies.
   // CORS_ORIGINS : adresses du site séparées par des virgules (défaut : FRONT_URL)

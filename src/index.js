@@ -1,4 +1,7 @@
 'use strict';
+// Suivi des erreurs : initialisé avant le reste (inactif sans SENTRY_DSN)
+const sentry = require("./sentry");
+sentry.init();
 const seedBootstrap = require("./bootstrap");
 const registerNotifications = require("./notifications");
 const { registerSlotRelease, ensureSlotIndex } = require("./appointment-slots");
@@ -62,6 +65,8 @@ module.exports = {
    * This gives you an opportunity to extend code.
    */
   register({ strapi }) {
+    // Erreurs journalisées (webhooks, factures, virements…) remontées à Sentry
+    sentry.hookLogger(strapi);
     // Création automatique des notifications (support, rendez-vous, avis…)
     registerNotifications(strapi);
     // Un rendez-vous annulé libère son créneau (verrou anti double réservation)

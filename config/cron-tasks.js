@@ -6,9 +6,10 @@ const { expirePending, mondayPayouts } = require('../src/payments');
 const { issueMissingInvoices } = require('../src/invoices');
 const { sendPatientReminders, sendCloseReminders } = require('../src/appointment-reminders');
 const { checkPaymentAccounts } = require('../src/payment-alerts');
+const { monitorCrons } = require('../src/sentry');
 
-/** Tâches planifiées (heure de Paris) */
-module.exports = {
+/** Tâches planifiées (heure de Paris), surveillées par Sentry Crons (voir src/sentry.js) */
+module.exports = monitorCrons({
 	// Mesure d'audience : visites de plus de 13 mois supprimées chaque nuit
 	purgeOldPageViews: {
 		task: ({ strapi }) => purge(strapi),
@@ -49,4 +50,4 @@ module.exports = {
 		task: ({ strapi }) => mondayPayouts(strapi),
 		options: { rule: '0 8 * * 1', tz: 'Europe/Paris' },
 	},
-};
+});
