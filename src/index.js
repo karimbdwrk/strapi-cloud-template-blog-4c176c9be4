@@ -87,6 +87,10 @@ module.exports = {
     // Sessions par cookie : renouvellement du jeton (sans être connecté) et déconnexion
     await ensurePermission(strapi, { type: "public" }, "plugin::users-permissions.auth.refresh");
     await ensurePermission(strapi, { type: "authenticated" }, "plugin::users-permissions.auth.logout");
+    // RGPD : export des données et suppression du compte par l'utilisateur
+    for (const action of ["export", "remove"]) {
+      await ensurePermission(strapi, { type: "authenticated" }, `api::account.account.${action}`);
+    }
     // Newsletter : jeton de désinscription des anciens inscrits, export CSV réservé à l'admin
     await ensureNewsletterTokens(strapi);
     await ensurePermission(strapi, { name: "SuperAdmin" }, "api::newsletter.newsletter.export");
