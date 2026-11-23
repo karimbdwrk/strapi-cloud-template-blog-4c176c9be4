@@ -108,6 +108,7 @@ module.exports = {
     // Gestion des métiers depuis l'admin Meyana (le contrôleur revérifie le rôle)
     for (const action of ["adminList", "adminCreate", "adminUpdate", "adminDelete"]) {
       await ensurePermission(strapi, { name: "SuperAdmin" }, `api::category.category.${action}`);
+      await ensurePermission(strapi, { name: "SuperAdmin" }, `api::profession-family.profession-family.${action}`);
     }
     // Liste Meyana des mots-clés de recherche (après les métiers, auxquels ils sont rattachés)
     await ensureKeywords(strapi);

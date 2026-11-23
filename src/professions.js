@@ -28,38 +28,41 @@ const key = (text) => (text || '').trim().toLowerCase();
 /**
  * Métiers gérés depuis l'admin Meyana (/admin/metiers) : le catalogue ne les touche plus.
  * - removed : métiers supprimés (slug, nom, métier) : le catalogue ne les recrée pas ;
- * - managed : catégories modifiées ou créées dans l'admin : familles et libellés laissés tels quels.
+ * - managed : catégories modifiées ou créées dans l'admin : familles et libellés laissés tels quels ;
+ * - removedFamilies : familles supprimées (slug, nom) : le catalogue ne les recrée pas.
+ * Une famille renommée garde son slug : le catalogue la retrouve sans la recréer.
  */
 const adminStore = (strapi) => strapi.store({ type: 'core', name: 'professions' });
 
 const getAdminChanges = async (strapi) => {
 	const value = (await adminStore(strapi).get({ key: 'admin' })) || {};
-	return { removed: value.removed || [], managed: value.managed || [] };
+	return { removed: value.removed || [], managed: value.managed || [], removedFamilies: value.removedFamilies || [] };
 };
 
-const recordAdminChange = async (strapi, { removed = [], managed = [], deletedId }) => {
+const recordAdminChange = async (strapi, { removed = [], managed = [], removedFamilies = [], deletedId }) => {
 	const current = await getAdminChanges(strapi);
 	await adminStore(strapi).set({
 		key: 'admin',
 		value: {
 			removed: [...new Set([...current.removed, ...removed.map(slugify).filter(Boolean)])],
 			managed: [...new Set([...current.managed, ...managed])].filter((id) => id !== deletedId),
+			removedFamilies: [...new Set([...current.removedFamilies, ...removedFamilies.map(slugify).filter(Boolean)])],
 		},
 	});
 };
 
 const ensureProfessions = async (strapi) => {
 	const catalog = parseCatalog();
-	const { removed, managed } = await getAdminChanges(strapi);
+	const { removed, managed, removedFamilies } = await getAdminChanges(strapi);
 	const isRemoved = (profession) =>
 		removed.includes(slugify(profession.name)) || removed.includes(slugify(profession.professionName));
 
-	// Familles : retrouvées par slug, créées sinon
+	// Familles : retrouvées par slug, créées sinon (sauf si l'admin les a supprimées)
 	const existingFamilies = await strapi.documents(FAMILY).findMany({ fields: ['slug'], limit: -1 });
 	const familyBySlug = new Map(existingFamilies.map((f) => [f.slug, f.documentId]));
 	for (const family of catalog) {
 		const slug = slugify(family.name);
-		if (familyBySlug.has(slug)) continue;
+		if (familyBySlug.has(slug) || removedFamilies.includes(slug)) continue;
 		const created = await strapi.documents(FAMILY).create({
 			data: { name: family.name, slug, domain: family.domain, order: family.order },
 		});
@@ -71,7 +74,8 @@ const ensureProfessions = async (strapi) => {
 	for (const family of catalog) {
 		for (const profession of family.professions) {
 			const entry = professions.get(profession.professionName) || { ...profession, families: new Set() };
-			entry.families.add(familyBySlug.get(slugify(family.name)));
+			const familyId = familyBySlug.get(slugify(family.name));
+			if (familyId) entry.families.add(familyId);
 			professions.set(profession.professionName, entry);
 		}
 	}
