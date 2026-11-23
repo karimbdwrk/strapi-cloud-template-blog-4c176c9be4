@@ -28,8 +28,9 @@ const ADMIN_POPULATE = {
 	families: { fields: ['name', 'domain'] },
 	doctors: { fields: ['id'] },
 	appointments: { fields: ['id'] },
-	keywords: { fields: ['id'] },
+	keywords: { fields: ['name', 'status'] },
 };
+const KEYWORD = 'api::keyword.keyword';
 
 const adminView = (c) => ({
 	documentId: c.documentId,
@@ -42,6 +43,10 @@ const adminView = (c) => ({
 	doctorsCount: c.doctors?.length || 0,
 	appointmentsCount: c.appointments?.length || 0,
 	keywordsCount: c.keywords?.length || 0,
+	keywords: (c.keywords || [])
+		.filter((k) => k.status === 'approved')
+		.map((k) => ({ documentId: k.documentId, name: k.name }))
+		.sort((a, b) => a.name.localeCompare(b.name, 'fr')),
 });
 
 module.exports = createCoreController(UID, ({ strapi }) => {
@@ -74,6 +79,16 @@ module.exports = createCoreController(UID, ({ strapi }) => {
 				: [];
 			if (found.length !== ids.length) return { error: 'Famille de métiers inconnue.' };
 			data.families = ids;
+		}
+
+		// Mots-clés suggérés : mots-clés validés seulement (liste complète, remplace l'existante)
+		if (Array.isArray(input.keywords)) {
+			const ids = [...new Set(input.keywords.map(String))];
+			const found = ids.length
+				? await strapi.documents(KEYWORD).findMany({ filters: { documentId: { $in: ids }, status: 'approved' }, fields: ['id'], limit: -1 })
+				: [];
+			if (found.length !== ids.length) return { error: 'Mot-clé inconnu ou non validé.' };
+			data.keywords = ids;
 		}
 
 		// Slug unique dérivé du nom de la spécialité (gardé tel quel s'il ne change pas)

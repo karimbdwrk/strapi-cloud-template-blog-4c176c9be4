@@ -156,22 +156,32 @@ const consultationDocument = async (strapi, documentId, { creditNote = false } =
 		};
 	}
 
+	// Remboursement (annulation) affiché sur la facture elle-même ; l'avoir reste émis pour la comptabilité
+	let refund = null;
+	if (a.creditNoteUrl) {
+		const { data } = await stripe().creditNotes.list({ invoice: invoice.id, limit: 1 }, on);
+		const note = data[0];
+		if (note) refund = { date: toIso(note.created), amount: note.total, creditNoteNumber: note.number, reason: note.memo || null };
+	}
+	const totals = totalsOf(invoice);
+
 	return {
 		type: 'invoice',
 		kind: 'consultation',
 		number: invoice.number,
 		issuedAt: toIso(invoice.status_transitions?.finalized_at || invoice.created),
-		status: invoice.status === 'paid' ? 'paid' : invoice.status,
+		status: refund && refund.amount >= totals.total ? 'refunded' : invoice.status === 'paid' ? 'paid' : invoice.status,
 		paymentLabel: paid,
 		issuer,
 		customer,
 		reference: null,
 		items: invoice.lines.data.map((line) => ({ description: line.description, quantity: line.quantity || 1, amount: line.amount })),
-		...totalsOf(invoice),
+		...totals,
+		refund,
 		currency: invoice.currency,
 		notes,
 		links: documentLinks(consultationRef(documentId)),
-		related: a.creditNoteUrl ? { label: 'Voir l’avoir (remboursement)', ...documentLinks(creditNoteRef(documentId)) } : null,
+		related: null,
 	};
 };
 
@@ -377,6 +387,24 @@ const renderPdf = (doc) =>
 		y += 10;
 		pdf.font('sans-bold').fontSize(10).fillColor(COLORS.ink).text(doc.tax ? 'Total TTC' : 'Total', totalsX, y + 4, { width: 120 });
 		pdf.font('serif').fontSize(18).text(money(doc.total, doc.currency), totalsX + 100, y, { width: 120, align: 'right' });
+
+		// Remboursement d'une consultation annulée
+		if (doc.refund) {
+			y += 34;
+			pdf.font('sans').fontSize(9).fillColor(COLORS.accent).text(`Remboursé le ${day(doc.refund.date)}`, totalsX, y, { width: 150, lineBreak: false });
+			pdf.text(`− ${money(doc.refund.amount, doc.currency)}`, totalsX + 150, y, { width: 70, align: 'right' });
+			y += 16;
+			const details = [doc.refund.reason, doc.refund.creditNoteNumber && `Avoir n° ${doc.refund.creditNoteNumber}`].filter(Boolean);
+			for (const detail of details) {
+				pdf.font('sans').fontSize(8).fillColor(COLORS.muted).text(text(detail), totalsX, y, { width: 220 });
+				y = pdf.y + 2;
+			}
+			y += 6;
+			pdf.moveTo(totalsX, y).lineTo(right, y).lineWidth(0.5).strokeColor(COLORS.line).stroke();
+			y += 8;
+			pdf.font('sans-bold').fontSize(9.5).fillColor(COLORS.ink).text('Net après remboursement', totalsX, y, { width: 150, lineBreak: false });
+			pdf.text(money(Math.max(doc.total - doc.refund.amount, 0), doc.currency), totalsX + 150, y, { width: 70, align: 'right' });
+		}
 
 		// Mentions en pied de page
 		const notes = doc.notes.map(text);

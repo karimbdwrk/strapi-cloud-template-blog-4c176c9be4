@@ -8,6 +8,8 @@ module.exports = {
 		{ method: 'DELETE', path: '/keywords/mine/:id', handler: 'keyword.withdraw' },
 		// Modération (admin) : propositions et liste Meyana, champs internes compris
 		{ method: 'GET', path: '/keywords/moderation', handler: 'keyword.moderation' },
+		// Tous les mots-clés validés (choix des mots-clés suggérés d'un métier)
+		{ method: 'GET', path: '/keywords/options', handler: 'keyword.options' },
 		{ method: 'PUT', path: '/keywords/:id/moderate', handler: 'keyword.moderate' },
 	],
 };

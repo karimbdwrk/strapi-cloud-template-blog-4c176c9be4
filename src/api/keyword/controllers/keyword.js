@@ -49,14 +49,16 @@ const moderationView = (k) => ({
 		? { documentId: k.proposedBy.documentId, firstname: k.proposedBy.firstname, lastname: k.proposedBy.lastname }
 		: null,
 	doctorsCount: k.doctors?.length || 0,
-	categories: (k.categories || []).map((c) => ({ id: c.id, name: c.name })),
+	categories: (k.categories || []).map((c) => ({ id: c.id, documentId: c.documentId, name: c.professionName || c.name })),
 });
 
 const MODERATION_POPULATE = {
 	proposedBy: { fields: ['firstname', 'lastname'] },
 	doctors: { fields: ['id'] },
-	categories: { fields: ['name'] },
+	categories: { fields: ['name', 'professionName'] },
 };
+
+const CATEGORY = 'api::category.category';
 
 // Onglets de la modération
 const MODERATION_VIEWS = {
@@ -271,6 +273,15 @@ module.exports = createCoreController(UID, ({ strapi }) => {
 			if ('status' in data && !Object.values(MODERATION_VIEWS).some((v) => v.status === data.status)) {
 				return ctx.badRequest('Statut inconnu.');
 			}
+			// Métiers suggérés : liste complète des documentId de métiers (remplace l'existante)
+			if (Array.isArray(input.categories)) {
+				const ids = [...new Set(input.categories.map(String))];
+				const found = ids.length
+					? await strapi.documents(CATEGORY).findMany({ filters: { documentId: { $in: ids } }, fields: ['id'], limit: -1 })
+					: [];
+				if (found.length !== ids.length) return ctx.badRequest('Métier inconnu.');
+				data.categories = ids;
+			}
 			const existing = await strapi.documents(UID).findOne({ documentId: ctx.params.id, fields: ['id'] });
 			if (!existing) return ctx.notFound();
 			await strapi.documents(UID).update({ documentId: ctx.params.id, data });
@@ -280,6 +291,21 @@ module.exports = createCoreController(UID, ({ strapi }) => {
 				populate: MODERATION_POPULATE,
 			});
 			ctx.body = { data: moderationView(updated) };
+		},
+
+		/** Tous les mots-clés validés, liste Meyana d'abord (admin) */
+		async options(ctx) {
+			if (!isAdmin(ctx.state.user)) return ctx.forbidden();
+			const rows = await strapi.documents(UID).findMany({
+				filters: { status: 'approved' },
+				fields: ['name', 'type', 'global', 'sensitive'],
+				limit: -1,
+			});
+			ctx.body = {
+				data: rows
+					.map((k) => ({ documentId: k.documentId, name: k.name, type: k.type, global: Boolean(k.global), sensitive: Boolean(k.sensitive) }))
+					.sort((a, b) => Number(b.global) - Number(a.global) || a.name.localeCompare(b.name, 'fr')),
+			};
 		},
 
 		/** Retrait d'une proposition encore en attente */

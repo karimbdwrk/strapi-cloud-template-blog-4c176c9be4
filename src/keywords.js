@@ -138,7 +138,7 @@ const ensureKeywords = async (strapi) => {
 	for (const action of ['mine', 'setMine', 'withdraw']) {
 		await ensurePermission(strapi, { type: 'authenticated' }, `${KEYWORD}.${action}`);
 	}
-	for (const action of ['find', 'findOne', 'create', 'update', 'delete', 'mine', 'setMine', 'withdraw', 'moderation', 'moderate']) {
+	for (const action of ['find', 'findOne', 'create', 'update', 'delete', 'mine', 'setMine', 'withdraw', 'moderation', 'moderate', 'options']) {
 		await ensurePermission(strapi, { name: 'SuperAdmin' }, `${KEYWORD}.${action}`);
 	}
 };
