@@ -14,6 +14,7 @@ const { createCoreController } = require('@strapi/strapi').factories;
 const { currentCharterVersion } = require('../../../charter');
 const payments = require('../../../payments');
 const invoices = require('../../../invoices');
+const { searchDoctorIds } = require('../../../doctor-search');
 
 const UID = 'api::doctor.doctor';
 const USER_UID = 'plugin::users-permissions.user';
@@ -99,6 +100,11 @@ const isOwnProfile = async (strapi, documentId, user) =>
 	);
 
 module.exports = createCoreController(UID, ({ strapi }) => ({
+	/** Recherche libre : { ids } = documentId des praticiens correspondants, null si rien à chercher (src/doctor-search.js) */
+	async search(ctx) {
+		ctx.body = { ids: await searchDoctorIds(strapi, ctx.query?.q) };
+	},
+
 	async find(ctx) {
 		const response = await super.find(ctx);
 		if (!isAdmin(ctx.state.user)) stripPrivateRelations(response?.data);

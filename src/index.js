@@ -156,6 +156,10 @@ module.exports = {
     for (const action of ["mine", "onboarding", "dashboard", "invoices", "billingInfo"]) {
       await ensurePermission(strapi, { type: "authenticated" }, `api::payout.payout.${action}`);
     }
+    // Recherche libre des praticiens, ouverte à tous comme la liste des praticiens
+    for (const role of [{ type: "public" }, { type: "authenticated" }]) {
+      await ensurePermission(strapi, role, "api::doctor.doctor.search");
+    }
     // Catalogue Stripe (formules Premium, portail client) créé s'il manque
     await setupBilling(strapi);
     // Clients Stripe des praticiens : nom, adresse, SIRET et mention de TVA sur les factures Meyana
